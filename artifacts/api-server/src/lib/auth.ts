@@ -29,10 +29,12 @@ export async function createSession(userId: number, res: Response): Promise<stri
     expiresAt,
   });
 
+  const isProd = process.env.NODE_ENV === "production";
+
   res.cookie(SESSION_COOKIE, sessionId, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
     expires: expiresAt,
     path: "/",
   });

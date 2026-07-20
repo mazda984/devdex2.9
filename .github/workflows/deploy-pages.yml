@@ -38,8 +38,10 @@ jobs:
         # working no matter what the repo gets renamed to
         # (https://<user>.github.io/<repo-name>/).
         # PORT is only required by the shared vite config, it is unused during build.
+        # VITE_API_URL should point at wherever artifacts/api-server is hosted
+        # (set it as a repo variable: Settings -> Secrets and variables -> Actions -> Variables).
         run: |
-          PORT=4173 BASE_PATH="/${{ github.event.repository.name }}/" pnpm --filter @workspace/devdex run build
+          PORT=4173 BASE_PATH="/${{ github.event.repository.name }}/" VITE_API_URL="${{ vars.VITE_API_URL }}" pnpm --filter @workspace/devdex run build
 
       - name: Add SPA fallback and disable Jekyll
         run: |

@@ -97,3 +97,13 @@ One-time setup:
 3. If the page still shows the raw README after this, double-check that **Settings → Pages → Source** is set to **GitHub Actions** and not "Deploy from a branch" — the latter is what renders README.md via Jekyll instead of running the workflow.
 
 **Important:** GitHub Pages only serves static files. The API server (`artifacts/api-server`) and the Postgres database it needs cannot run there — you'll need to host those separately (e.g. Render, Railway, Fly.io, a VPS) and point the web client at that API's URL for the deployed site to actually load data.
+
+### Making login work on the deployed site
+
+The frontend on GitHub Pages and the API server live on different domains, so this needs three things, all already wired up in this repo:
+
+1. **Deploy `artifacts/api-server` somewhere** (Render, Railway, Fly.io, a VPS...) with `DATABASE_URL` and `NODE_ENV=production` set. Note the public URL you get, e.g. `https://devdex-api.onrender.com`.
+2. **Tell the frontend build where the API is.** In the repo, go to **Settings → Secrets and variables → Actions → Variables** and add a repo variable named `VITE_API_URL` with that URL. The `deploy-pages.yml` workflow already passes it through at build time.
+3. **Push to `main`** to rebuild and redeploy the frontend with the new API URL baked in.
+
+Without step 2, the deployed site has no idea where the API is and every request (including login) silently fails.

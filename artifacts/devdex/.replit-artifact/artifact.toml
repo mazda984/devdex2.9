@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "DevDex"
+version = "1.0.0"
+id = "artifacts/devdex"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24937
+
+[services.development]
+run = "pnpm --filter @workspace/devdex run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/devdex", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/devdex/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24937"
+BASE_PATH = "/"

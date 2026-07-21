@@ -1,9 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { useGetGame, getGetGameQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetGame,
+  getGetGameQueryKey,
+  useDeleteGame,
+  getGetUserGamesQueryKey,
+  getListGamesQueryKey,
+} from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
-import { Play, Calendar, User as UserIcon, Tag, ExternalLink, X, Share2, Gamepad2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Play, Calendar, User as UserIcon, Tag, ExternalLink, X, Share2, Gamepad2, Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { format } from "date-fns";
 
@@ -48,6 +68,9 @@ export default function GameDetail() {
   const gameId = parseInt(id || "0", 10);
   const [, setLocation] = useLocation();
   const [isPlaying, setIsPlaying] = useState(false);
+  const { user: currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: game, isLoading, error } = useGetGame(gameId, {
     query: {
@@ -55,6 +78,28 @@ export default function GameDetail() {
       queryKey: getGetGameQueryKey(gameId)
     }
   });
+
+  const deleteGame = useDeleteGame({
+    mutation: {
+      onSuccess: () => {
+        toast({ title: "Oyun silindi" });
+        if (game) {
+          queryClient.invalidateQueries({ queryKey: getGetUserGamesQueryKey(game.authorId) });
+        }
+        queryClient.invalidateQueries({ queryKey: getListGamesQueryKey() });
+        setLocation(currentUser ? `/profile/${currentUser.id}` : "/games");
+      },
+      onError: () => {
+        toast({
+          title: "Oyun silinemedi",
+          description: "Bir hata oluştu, lütfen tekrar dene.",
+          variant: "destructive",
+        });
+      },
+    },
+  });
+
+  const isOwner = !!currentUser && !!game && currentUser.id === game.authorId;
 
   if (isLoading) {
     return <div className="flex-1 flex items-center justify-center min-h-[60vh]"><Loader /></div>;
@@ -189,6 +234,33 @@ export default function GameDetail() {
                     <ExternalLink className="w-4 h-4 mr-2" /> External
                   </Button>
                 </a>
+                {isOwner && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="w-full col-span-2 bg-background text-destructive hover:text-destructive-foreground hover:bg-destructive border-destructive/40">
+                        <Trash2 className="w-4 h-4 mr-2" /> Delete Game
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Bu oyunu silmek istediğine emin misin?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          "{game.title}" kalıcı olarak silinecek. Bu işlem geri alınamaz.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          disabled={deleteGame.isPending}
+                          onClick={() => deleteGame.mutate({ id: game.id })}
+                        >
+                          {deleteGame.isPending ? "Siliniyor..." : "Sil"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
               </div>
             </section>
           </div>

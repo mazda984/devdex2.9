@@ -1,15 +1,16 @@
 import React from "react";
 import { Link } from "wouter";
-import { Play, Eye, Clock, Star, Gamepad2 } from "lucide-react";
+import { Play, Eye, Clock, Star, Gamepad2, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { Game } from "@workspace/api-client-react";
 
 interface GameCardProps {
   game: Game;
   priority?: boolean;
+  onDelete?: (game: Game) => void;
 }
 
-export default function GameCard({ game, priority = false }: GameCardProps) {
+export default function GameCard({ game, priority = false, onDelete }: GameCardProps) {
   return (
     <Link href={`/games/${game.id}`}>
       <div className="group relative rounded-xl overflow-hidden bg-card border border-border transition-all duration-300 hover:-translate-y-1 hover:shadow-lg flex flex-col h-full cursor-pointer">
@@ -34,6 +35,21 @@ export default function GameCard({ game, priority = false }: GameCardProps) {
               <Star className="w-3 h-3 fill-current" />
               FEATURED
             </div>
+          )}
+
+          {onDelete && (
+            <button
+              type="button"
+              aria-label="Oyunu sil"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(game);
+              }}
+              className="absolute top-3 left-3 z-10 w-8 h-8 rounded-full bg-black/60 hover:bg-destructive text-white flex items-center justify-center transition-colors shadow-sm"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           )}
           
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">

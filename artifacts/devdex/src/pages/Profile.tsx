@@ -1,10 +1,28 @@
 import React from "react";
 import { useParams, useLocation } from "wouter";
-import { useGetUserGames, getGetUserGamesQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetUserGames,
+  getGetUserGamesQueryKey,
+  useDeleteGame,
+  getListGamesQueryKey,
+  type Game,
+} from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 import { UserCircle, Calendar, PlusSquare, Gamepad2 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -13,12 +31,33 @@ export default function Profile() {
   const userId = parseInt(id || "0", 10);
   const [, setLocation] = useLocation();
   const { user: currentUser } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [gameToDelete, setGameToDelete] = React.useState<Game | null>(null);
 
   const { data: games, isLoading, error } = useGetUserGames(userId, {
     query: {
       enabled: !!userId,
       queryKey: getGetUserGamesQueryKey(userId)
     }
+  });
+
+  const deleteGame = useDeleteGame({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetUserGamesQueryKey(userId) });
+        queryClient.invalidateQueries({ queryKey: getListGamesQueryKey() });
+        toast({ title: "Oyun silindi" });
+        setGameToDelete(null);
+      },
+      onError: () => {
+        toast({
+          title: "Oyun silinemedi",
+          description: "Bir hata oluştu, lütfen tekrar dene.",
+          variant: "destructive",
+        });
+      },
+    },
   });
 
   const isOwnProfile = currentUser?.id === userId;
@@ -87,7 +126,11 @@ export default function Profile() {
         {games && games.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
             {games.map((game) => (
-              <GameCard key={game.id} game={game} />
+              <GameCard
+                key={game.id}
+                game={game}
+                onDelete={isOwnProfile ? (g) => setGameToDelete(g) : undefined}
+              />
             ))}
           </div>
         ) : (
@@ -107,6 +150,31 @@ export default function Profile() {
           </div>
         )}
       </div>
+
+      <AlertDialog open={!!gameToDelete} onOpenChange={(open) => !open && setGameToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bu oyunu silmek istediğine emin misin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{gameToDelete?.title}" kalıcı olarak silinecek. Bu işlem geri alınamaz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteGame.isPending}
+              onClick={() => {
+                if (gameToDelete) {
+                  deleteGame.mutate({ id: gameToDelete.id });
+                }
+              }}
+            >
+              {deleteGame.isPending ? "Siliniyor..." : "Sil"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -16,12 +16,24 @@ import { uniqueSlug } from "../lib/slugify";
 
 const router: IRouter = Router();
 
-function safeUser(user: { id: number; username: string; email: string; avatarUrl: string | null; createdAt: Date }) {
+function safeUser(user: {
+  id: number;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  dexbux: number;
+  isAdmin: boolean;
+  avatarItemId: number | null;
+  createdAt: Date;
+}) {
   return {
     id: user.id,
     username: user.username,
     email: user.email,
     avatarUrl: user.avatarUrl,
+    dexbux: user.dexbux,
+    isAdmin: user.isAdmin,
+    avatarItemId: user.avatarItemId,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -185,7 +197,7 @@ router.post("/games", async (req, res): Promise<void> => {
   }
 
   const { title, gameUrl, coverImageUrl, description, category } = parsed.data;
-  const slug = uniqueSlug(title);
+  const slug = await uniqueSlug(title);
 
   const [game] = await db
     .insert(gamesTable)
@@ -228,7 +240,21 @@ router.get("/games/:id", async (req, res): Promise<void> => {
     .set({ playCount: result.games.playCount + 1 })
     .where(eq(gamesTable.id, result.games.id));
 
-  res.json(formatGame({ ...result.games, playCount: result.games.playCount + 1 }, result.users));
+  // Reward the author with 1 DexBux per play — but not for the author
+  // playing their own game, to avoid trivial self-farming.
+  const sessionId = getSessionId(req);
+  const player = sessionId ? await getSessionUser(sessionId) : null;
+  let author = result.users;
+  if (!player || player.id !== result.games.authorId) {
+    const [updatedAuthor] = await db
+      .update(usersTable)
+      .set({ dexbux: sql`${usersTable.dexbux} + 1` })
+      .where(eq(usersTable.id, result.games.authorId))
+      .returning();
+    if (updatedAuthor) author = updatedAuthor;
+  }
+
+  res.json(formatGame({ ...result.games, playCount: result.games.playCount + 1 }, author));
 });
 
 router.patch("/games/:id", async (req, res): Promise<void> => {

@@ -23,6 +23,10 @@ export interface User {
   email: string;
   /** @nullable */
   avatarUrl: string | null;
+  dexbux: number;
+  isAdmin: boolean;
+  /** @nullable */
+  avatarItemId: number | null;
   createdAt: string;
 }
 

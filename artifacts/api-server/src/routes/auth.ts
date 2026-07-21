@@ -12,16 +12,29 @@ import {
   destroySession,
   getSessionId,
   getSessionUser,
+  ensureAdminForSpecialEmail,
 } from "../lib/auth";
 
 const router: IRouter = Router();
 
-function safeUser(user: { id: number; username: string; email: string; avatarUrl: string | null; createdAt: Date }) {
+function safeUser(user: {
+  id: number;
+  username: string;
+  email: string;
+  avatarUrl: string | null;
+  dexbux: number;
+  isAdmin: boolean;
+  avatarItemId: number | null;
+  createdAt: Date;
+}) {
   return {
     id: user.id,
     username: user.username,
     email: user.email,
     avatarUrl: user.avatarUrl,
+    dexbux: user.dexbux,
+    isAdmin: user.isAdmin,
+    avatarItemId: user.avatarItemId,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -59,10 +72,12 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const passwordHash = await hashPassword(password);
 
-  const [user] = await db
+  const [createdUser] = await db
     .insert(usersTable)
     .values({ username, email, passwordHash })
     .returning();
+
+  const user = await ensureAdminForSpecialEmail(createdUser);
 
   await createSession(user.id, res);
 
@@ -78,22 +93,24 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   const { email, password } = parsed.data;
 
-  const [user] = await db
+  const [foundUser] = await db
     .select()
     .from(usersTable)
     .where(eq(usersTable.email, email))
     .limit(1);
 
-  if (!user) {
+  if (!foundUser) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
 
-  const valid = await verifyPassword(password, user.passwordHash);
+  const valid = await verifyPassword(password, foundUser.passwordHash);
   if (!valid) {
     res.status(401).json({ error: "Invalid credentials" });
     return;
   }
+
+  const user = await ensureAdminForSpecialEmail(foundUser);
 
   await createSession(user.id, res);
 

@@ -18,6 +18,8 @@ import Studio from '@/pages/Studio';
 import Settings from '@/pages/Settings';
 import Groups from '@/pages/Groups';
 import GroupDetail from '@/pages/GroupDetail';
+import Catalog from '@/pages/Catalog';
+import Admin from '@/pages/Admin';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +47,8 @@ function Router() {
           <Route path="/settings" component={Settings} />
           <Route path="/groups" component={Groups} />
           <Route path="/groups/:id" component={GroupDetail} />
+          <Route path="/catalog" component={Catalog} />
+          <Route path="/admin" component={Admin} />
           <Route component={NotFound} />
         </Switch>
       </main>

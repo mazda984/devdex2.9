@@ -544,6 +544,12 @@ components:
           type: string
         avatarUrl:
           type: ["string", "null"]
+        dexbux:
+          type: integer
+        isAdmin:
+          type: boolean
+        avatarItemId:
+          type: ["integer", "null"]
         createdAt:
           type: string
       required:
@@ -551,6 +557,9 @@ components:
         - username
         - email
         - avatarUrl
+        - dexbux
+        - isAdmin
+        - avatarItemId
         - createdAt
 
     AuthResponse:

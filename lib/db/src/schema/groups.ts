@@ -21,3 +21,11 @@ export const groupMembersTable = pgTable("group_members", {
   role: text("role").notNull().default("member"), // "owner" | "member"
   joinedAt: timestamp("joined_at").notNull().defaultNow(),
 });
+
+export const groupPostsTable = pgTable("group_posts", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").notNull().references(() => groupsTable.id),
+  authorId: integer("author_id").notNull().references(() => usersTable.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

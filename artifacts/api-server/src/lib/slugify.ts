@@ -7,7 +7,22 @@ export function slugify(title: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function uniqueSlug(base: string): string {
+export async function uniqueSlug(
+  base: string,
+  existsCheck?: (slug: string) => Promise<boolean>,
+): Promise<string> {
   const suffix = Math.random().toString(36).slice(2, 7);
-  return `${slugify(base)}-${suffix}`;
+  let slug = `${slugify(base)}-${suffix}`;
+
+  if (existsCheck) {
+    // Extremely unlikely to collide given the random suffix, but retry a
+    // few times just in case.
+    let attempts = 0;
+    while ((await existsCheck(slug)) && attempts < 5) {
+      slug = `${slugify(base)}-${Math.random().toString(36).slice(2, 7)}`;
+      attempts++;
+    }
+  }
+
+  return slug;
 }

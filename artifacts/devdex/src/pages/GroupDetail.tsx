@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { 
@@ -7,12 +7,14 @@ import {
   useJoinGroup,
   useLeaveGroup
 } from "@workspace/api-client-react";
+import { useGroupPosts, useCreateGroupPost, useDeleteGroupPost } from "@/lib/extra-api";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
-import { Users, Image as ImageIcon, Lock, Globe, ArrowLeft, Calendar, UserCircle, Shield } from "lucide-react";
-import { format } from "date-fns";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, Image as ImageIcon, Lock, Globe, ArrowLeft, Calendar, UserCircle, Shield, MessageSquare, Trash2, Send } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 
 export default function GroupDetail() {
   const params = useParams<{ id: string }>();
@@ -31,6 +33,35 @@ export default function GroupDetail() {
 
   const joinGroup = useJoinGroup();
   const leaveGroup = useLeaveGroup();
+
+  const { data: posts, isLoading: postsLoading } = useGroupPosts(id);
+  const createPost = useCreateGroupPost(id);
+  const deletePost = useDeleteGroupPost(id);
+  const [postContent, setPostContent] = useState("");
+
+  const handleCreatePost = () => {
+    if (!postContent.trim()) return;
+    createPost.mutate(postContent.trim(), {
+      onSuccess: () => {
+        setPostContent("");
+        toast({ title: "Gönderi paylaşıldı" });
+      },
+      onError: (err: any) => {
+        toast({
+          title: "Gönderi paylaşılamadı",
+          description: err?.data?.error || "Grup üyesi olman gerekiyor.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleDeletePost = (postId: number) => {
+    deletePost.mutate(postId, {
+      onSuccess: () => toast({ title: "Gönderi silindi" }),
+      onError: () => toast({ title: "Gönderi silinemedi", variant: "destructive" }),
+    });
+  };
 
   if (isLoading) {
     return (
@@ -199,6 +230,79 @@ export default function GroupDetail() {
               <div className="prose prose-sm md:prose-base dark:prose-invert max-w-none text-muted-foreground whitespace-pre-wrap leading-relaxed">
                 {group.description || "This group hasn't provided a description yet."}
               </div>
+            </section>
+
+            <section className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" /> Posts
+              </h2>
+
+              {user && group.isMember && (
+                <div className="mb-6 flex flex-col gap-3">
+                  <Textarea
+                    value={postContent}
+                    onChange={(e) => setPostContent(e.target.value)}
+                    placeholder="Gruba bir şeyler paylaş..."
+                    className="resize-none"
+                    rows={3}
+                  />
+                  <Button
+                    onClick={handleCreatePost}
+                    disabled={createPost.isPending || !postContent.trim()}
+                    className="self-end font-semibold"
+                  >
+                    <Send className="w-4 h-4 mr-2" />
+                    {createPost.isPending ? "Paylaşılıyor..." : "Paylaş"}
+                  </Button>
+                </div>
+              )}
+
+              {postsLoading ? (
+                <div className="py-8 flex justify-center"><Loader /></div>
+              ) : posts && posts.length > 0 ? (
+                <div className="space-y-4">
+                  {posts.map((post) => {
+                    const canDelete = user && (user.id === post.authorId || user.id === group.authorId || user.isAdmin);
+                    return (
+                      <div key={post.id} className="flex gap-3 border-b border-border/50 last:border-0 pb-4 last:pb-0">
+                        <Link href={`/profile/${post.authorId}`} className="shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden">
+                            {post.author.avatarUrl ? (
+                              <img src={post.author.avatarUrl} alt={post.author.username} className="w-full h-full object-cover" />
+                            ) : (
+                              <UserCircle className="w-6 h-6 text-muted-foreground" />
+                            )}
+                          </div>
+                        </Link>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Link href={`/profile/${post.authorId}`} className="font-bold text-sm hover:text-primary transition-colors">
+                                {post.author.username}
+                              </Link>
+                              <span className="text-xs text-muted-foreground">
+                                {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                              </span>
+                            </div>
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDeletePost(post.id)}
+                                className="text-muted-foreground hover:text-destructive transition-colors"
+                                aria-label="Gönderiyi sil"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-sm text-foreground whitespace-pre-wrap mt-1">{post.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm text-center py-8">Henüz gönderi yok.</p>
+              )}
             </section>
 
             <section>

@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { Gamepad2, UserCircle, LogOut, PlusSquare, Search, Wrench, Settings as SettingsIcon, Sun, Moon, Users } from "lucide-react";
+import { Gamepad2, UserCircle, LogOut, PlusSquare, Search, Wrench, Settings as SettingsIcon, Sun, Moon, Users, Coins, ShieldCheck, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/lib/theme";
 
@@ -31,6 +31,10 @@ export default function Navbar() {
               <Users className="w-4 h-4" />
               Groups
             </Link>
+            <Link href="/catalog" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
+              <ShoppingBag className="w-4 h-4" />
+              Catalog
+            </Link>
             <Link href="/submit" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
               <PlusSquare className="w-4 h-4" />
               Submit
@@ -39,6 +43,12 @@ export default function Navbar() {
               <Wrench className="w-4 h-4" />
               Studio
             </Link>
+            {user?.isAdmin && (
+              <Link href="/admin" className="text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4" />
+                Admin
+              </Link>
+            )}
           </nav>
         </div>
 
@@ -53,6 +63,10 @@ export default function Navbar() {
 
           {user ? (
             <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex items-center gap-1.5 bg-secondary border border-border px-2.5 py-1.5 rounded-full text-sm font-bold text-foreground" title="DexBux bakiyen">
+                <Coins className="w-4 h-4 text-amber-500" />
+                {user.dexbux.toLocaleString()}
+              </div>
               <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors">
                 <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden">
                   {user.avatarUrl ? (

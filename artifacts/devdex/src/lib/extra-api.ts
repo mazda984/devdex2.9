@@ -24,6 +24,15 @@ export interface GroupPost {
   createdAt: string;
 }
 
+export interface GameComment {
+  id: number;
+  gameId: number;
+  authorId: number;
+  content: string;
+  author: User;
+  createdAt: string;
+}
+
 // ---------------------------------------------------------------------------
 // Query keys
 // ---------------------------------------------------------------------------
@@ -35,6 +44,10 @@ export const catalogKeys = {
 
 export const groupPostKeys = {
   list: (groupId: number) => ["group-posts", groupId] as const,
+};
+
+export const gameCommentKeys = {
+  list: (gameId: number) => ["game-comments", gameId] as const,
 };
 
 export const adminKeys = {
@@ -137,6 +150,46 @@ export function useDeleteGroupPost(groupId: number) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: groupPostKeys.list(groupId) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Game comments
+// ---------------------------------------------------------------------------
+
+export function useGameComments(gameId: number) {
+  return useQuery({
+    queryKey: gameCommentKeys.list(gameId),
+    queryFn: () => customFetch<GameComment[]>(`/api/games/${gameId}/comments`),
+    enabled: !!gameId,
+  });
+}
+
+export function useCreateGameComment(gameId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      customFetch<GameComment>(`/api/games/${gameId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: gameCommentKeys.list(gameId) });
+    },
+  });
+}
+
+export function useDeleteGameComment(gameId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (commentId: number) =>
+      customFetch<{ success: boolean }>(`/api/games/${gameId}/comments/${commentId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: gameCommentKeys.list(gameId) });
     },
   });
 }

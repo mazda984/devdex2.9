@@ -23,33 +23,62 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Calendar, User as UserIcon, Tag, ExternalLink, X, Share2, Gamepad2, Trash2 } from "lucide-react";
+import { Play, Calendar, User as UserIcon, Tag, ExternalLink, X, Share2, Gamepad2, Trash2, Maximize, Minimize, MessageSquare, Send } from "lucide-react";
 import { createPortal } from "react-dom";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { useGameComments, useCreateGameComment, useDeleteGameComment } from "@/lib/extra-api";
+import { Textarea } from "@/components/ui/textarea";
 
 function GameOverlay({ title, gameUrl, onClose }: { title: string; gameUrl: string; onClose: () => void }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.fullscreenElement) onClose(); };
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onFsChange);
     document.body.style.overflow = "hidden";
     return () => {
       document.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFsChange);
       document.body.style.overflow = "";
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(() => {});
+      }
     };
   }, [onClose]);
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
+
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-black">
+    <div ref={containerRef} className="fixed inset-0 z-[9999] flex flex-col bg-black">
       {/* Top bar */}
       <div className="flex items-center justify-between px-4 h-12 bg-black/80 backdrop-blur-sm border-b border-white/10 flex-shrink-0">
         <span className="text-white font-semibold text-sm truncate">{title}</span>
-        <button
-          onClick={onClose}
-          className="flex items-center justify-center w-9 h-9 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
-          aria-label="Close game"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+            title={isFullscreen ? "Tam ekrandan çık" : "Tam ekran"}
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+          </button>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center w-9 h-9 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            aria-label="Close game"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </div>
       {/* Game iframe */}
       <iframe
@@ -203,6 +232,13 @@ export default function GameDetail() {
                 )}
               </div>
             </section>
+
+            <section className="bg-card border border-border rounded-2xl p-6 md:p-8 shadow-sm">
+              <h2 className="text-2xl font-bold mb-4 text-foreground flex items-center gap-2">
+                <MessageSquare className="w-5 h-5" /> Comments
+              </h2>
+              <GameComments gameId={game.id} currentUserId={currentUser?.id} isCurrentUserAdmin={!!currentUser?.isAdmin} gameAuthorId={game.authorId} />
+            </section>
           </div>
           
           <div className="space-y-6">
@@ -273,6 +309,112 @@ export default function GameDetail() {
           gameUrl={game.gameUrl}
           onClose={() => setIsPlaying(false)}
         />
+      )}
+    </div>
+  );
+}
+
+function GameComments({
+  gameId,
+  currentUserId,
+  isCurrentUserAdmin,
+  gameAuthorId,
+}: {
+  gameId: number;
+  currentUserId?: number;
+  isCurrentUserAdmin: boolean;
+  gameAuthorId: number;
+}) {
+  const { toast } = useToast();
+  const { data: comments, isLoading } = useGameComments(gameId);
+  const createComment = useCreateGameComment(gameId);
+  const deleteComment = useDeleteGameComment(gameId);
+  const [content, setContent] = useState("");
+
+  const handleSubmit = () => {
+    if (!content.trim()) return;
+    createComment.mutate(content.trim(), {
+      onSuccess: () => setContent(""),
+      onError: (err: any) => {
+        toast({
+          title: "Yorum eklenemedi",
+          description: err?.data?.error || "Giriş yapman gerekiyor.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleDelete = (commentId: number) => {
+    deleteComment.mutate(commentId, {
+      onSuccess: () => toast({ title: "Yorum silindi" }),
+      onError: () => toast({ title: "Yorum silinemedi", variant: "destructive" }),
+    });
+  };
+
+  return (
+    <div>
+      {currentUserId && (
+        <div className="mb-6 flex flex-col gap-3">
+          <Textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Bu oyun hakkında ne düşünüyorsun?"
+            rows={3}
+            className="resize-none"
+          />
+          <Button
+            onClick={handleSubmit}
+            disabled={createComment.isPending || !content.trim()}
+            className="self-end font-semibold"
+          >
+            <Send className="w-4 h-4 mr-2" />
+            {createComment.isPending ? "Gönderiliyor..." : "Yorum Yap"}
+          </Button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="py-8 flex justify-center"><Loader /></div>
+      ) : comments && comments.length > 0 ? (
+        <div className="space-y-4">
+          {comments.map((comment) => {
+            const canDelete = currentUserId && (currentUserId === comment.authorId || currentUserId === gameAuthorId || isCurrentUserAdmin);
+            return (
+              <div key={comment.id} className="flex gap-3 border-b border-border/50 last:border-0 pb-4 last:pb-0">
+                <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
+                  {comment.author.avatarUrl ? (
+                    <img src={comment.author.avatarUrl} alt={comment.author.username} className="w-full h-full object-cover" />
+                  ) : (
+                    <UserIcon className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-foreground">{comment.author.username}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                    {canDelete && (
+                      <button
+                        onClick={() => handleDelete(comment.id)}
+                        className="text-muted-foreground hover:text-destructive transition-colors"
+                        aria-label="Yorumu sil"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-foreground whitespace-pre-wrap mt-1">{comment.content}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm text-center py-8">Henüz yorum yok, ilk yorumu sen yap!</p>
       )}
     </div>
   );

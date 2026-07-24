@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, gamesTable, usersTable } from "@workspace/db";
+import { db, gamesTable, usersTable, gameCommentsTable } from "@workspace/db";
 import { eq, ilike, or, desc, sql } from "drizzle-orm";
 import {
   CreateGameBody,
@@ -363,6 +363,85 @@ router.get("/users/:id/games", async (req, res): Promise<void> => {
     .orderBy(desc(gamesTable.createdAt));
 
   res.json(results.map((r) => formatGame(r.games, r.users)));
+});
+
+// GET /games/:id/comments
+router.get("/games/:id/comments", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const results = await db
+    .select()
+    .from(gameCommentsTable)
+    .innerJoin(usersTable, eq(gameCommentsTable.authorId, usersTable.id))
+    .where(eq(gameCommentsTable.gameId, id))
+    .orderBy(desc(gameCommentsTable.createdAt));
+
+  res.json(
+    results.map((r) => ({
+      id: r.game_comments.id,
+      gameId: r.game_comments.gameId,
+      authorId: r.game_comments.authorId,
+      content: r.game_comments.content,
+      author: safeUser(r.users),
+      createdAt: r.game_comments.createdAt.toISOString(),
+    })),
+  );
+});
+
+// POST /games/:id/comments
+router.post("/games/:id/comments", async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const user = sessionId ? await getSessionUser(sessionId) : null;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const { content } = req.body;
+  if (!content || typeof content !== "string" || content.trim().length === 0) {
+    res.status(400).json({ error: "Content is required" });
+    return;
+  }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, id));
+  if (!game) { res.status(404).json({ error: "Game not found" }); return; }
+
+  const [comment] = await db
+    .insert(gameCommentsTable)
+    .values({ gameId: id, authorId: user.id, content: content.trim() })
+    .returning();
+
+  res.status(201).json({
+    id: comment.id,
+    gameId: comment.gameId,
+    authorId: comment.authorId,
+    content: comment.content,
+    author: safeUser(user),
+    createdAt: comment.createdAt.toISOString(),
+  });
+});
+
+// DELETE /games/:id/comments/:commentId — comment author, game author, or site admin
+router.delete("/games/:id/comments/:commentId", async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const user = sessionId ? await getSessionUser(sessionId) : null;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const gameId = parseInt(req.params.id, 10);
+  const commentId = parseInt(req.params.commentId, 10);
+  if (isNaN(gameId) || isNaN(commentId)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [comment] = await db.select().from(gameCommentsTable).where(eq(gameCommentsTable.id, commentId));
+  if (!comment || comment.gameId !== gameId) { res.status(404).json({ error: "Comment not found" }); return; }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId));
+
+  const canDelete = comment.authorId === user.id || game?.authorId === user.id || user.isAdmin;
+  if (!canDelete) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  await db.delete(gameCommentsTable).where(eq(gameCommentsTable.id, commentId));
+  res.json({ success: true });
 });
 
 export default router;

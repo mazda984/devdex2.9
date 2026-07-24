@@ -21,3 +21,13 @@ export const gamesTable = pgTable("games", {
 export const insertGameSchema = createInsertSchema(gamesTable).omit({ id: true, createdAt: true, updatedAt: true, playCount: true, featured: true });
 export type InsertGame = z.infer<typeof insertGameSchema>;
 export type Game = typeof gamesTable.$inferSelect;
+
+export const gameCommentsTable = pgTable("game_comments", {
+  id: serial("id").primaryKey(),
+  gameId: integer("game_id").notNull().references(() => gamesTable.id),
+  authorId: integer("author_id").notNull().references(() => usersTable.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type GameComment = typeof gameCommentsTable.$inferSelect;

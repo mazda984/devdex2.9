@@ -15,6 +15,8 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Profile from '@/pages/Profile';
 import Studio from '@/pages/Studio';
+import Studio2D from '@/pages/Studio2D';
+import Studio3D from '@/pages/Studio3D';
 import Settings from '@/pages/Settings';
 import Groups from '@/pages/Groups';
 import GroupDetail from '@/pages/GroupDetail';
@@ -44,6 +46,8 @@ function Router() {
           <Route path="/register" component={Register} />
           <Route path="/profile/:id" component={Profile} />
           <Route path="/studio" component={Studio} />
+          <Route path="/studio/2d" component={Studio2D} />
+          <Route path="/studio/3d" component={Studio3D} />
           <Route path="/settings" component={Settings} />
           <Route path="/groups" component={Groups} />
           <Route path="/groups/:id" component={GroupDetail} />

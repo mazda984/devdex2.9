@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import { Button } from "@/components/ui/button";
 import { Plus, Box as BoxIcon, MapPin, Trash2, Play, Square, Move3d } from "lucide-react";
+import skyboxUrl from "@/assets/skybox.webp";
+import blockTextureUrl from "@/assets/block-texture.png";
 
 type ObjectType = "part" | "spawnpoint";
 
@@ -45,6 +47,7 @@ export default function Studio3D() {
     renderer: THREE.WebGLRenderer;
     meshes: Map<string, THREE.Object3D>;
     baseplate: THREE.Mesh;
+    blockTexture: THREE.Texture | null;
   } | null>(null);
 
   const editCameraState = useRef({ position: new THREE.Vector3(15, 12, 15), yaw: -2.35, pitch: -0.4 });
@@ -80,17 +83,41 @@ export default function Studio3D() {
     const container = containerRef.current;
     if (!container) return;
 
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
-    scene.fog = new THREE.Fog(0x1a1a2e, 40, 120);
+    const getSize = () => {
+      const w = container.clientWidth || window.innerWidth;
+      const h = container.clientHeight || Math.max(window.innerHeight - 64, 300);
+      return { w, h };
+    };
 
-    const camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.Fog(0x88aac8, 50, 140);
+
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load(skyboxUrl, (tex) => {
+      tex.mapping = THREE.EquirectangularReflectionMapping;
+      tex.colorSpace = THREE.SRGBColorSpace;
+      scene.background = tex;
+    });
+
+    const blockTexture = textureLoader.load(blockTextureUrl);
+    blockTexture.colorSpace = THREE.SRGBColorSpace;
+    blockTexture.wrapS = THREE.RepeatWrapping;
+    blockTexture.wrapT = THREE.RepeatWrapping;
+
+    const { w: initW, h: initH } = getSize();
+    const camera = new THREE.PerspectiveCamera(70, initW / initH, 0.1, 1000);
     camera.position.copy(editCameraState.current.position);
+    camera.lookAt(0, 0, 0);
+    stateRef.current.yaw = camera.rotation.y;
+    stateRef.current.pitch = camera.rotation.x;
+    editCameraState.current.yaw = stateRef.current.yaw;
+    editCameraState.current.pitch = stateRef.current.pitch;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setSize(initW, initH);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     container.appendChild(renderer.domElement);
 
     const ambient = new THREE.AmbientLight(0xffffff, 0.6);
@@ -117,7 +144,7 @@ export default function Studio3D() {
     grid.position.y = 0.01;
     scene.add(grid);
 
-    threeRef.current = { scene, camera, renderer, meshes: new Map(), baseplate };
+    threeRef.current = { scene, camera, renderer, meshes: new Map(), baseplate, blockTexture };
 
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
@@ -257,11 +284,18 @@ export default function Studio3D() {
 
     function onResize() {
       if (!container) return;
-      camera.aspect = container.clientWidth / container.clientHeight;
+      const { w, h } = getSize();
+      camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.setSize(w, h);
     }
     window.addEventListener("resize", onResize);
+    // Container size can be 0 on first paint in some layouts; re-check a
+    // couple of times shortly after mount and whenever it changes.
+    const resizeObserver = new ResizeObserver(onResize);
+    resizeObserver.observe(container);
+    const t1 = setTimeout(onResize, 50);
+    const t2 = setTimeout(onResize, 300);
 
     return () => {
       cancelAnimationFrame(rafId);
@@ -272,6 +306,9 @@ export default function Studio3D() {
       window.removeEventListener("keyup", onKeyUp);
       dom.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("resize", onResize);
+      resizeObserver.disconnect();
+      clearTimeout(t1);
+      clearTimeout(t2);
       renderer.dispose();
       if (container.contains(dom)) container.removeChild(dom);
     };
@@ -295,7 +332,10 @@ export default function Studio3D() {
         if (obj.type === "part") {
           const m = new THREE.Mesh(
             new THREE.BoxGeometry(2, 1, 2),
-            new THREE.MeshStandardMaterial({ color: 0x6b8cff }),
+            new THREE.MeshStandardMaterial({
+              map: t.blockTexture ?? undefined,
+              color: t.blockTexture ? 0xffffff : 0x6b8cff,
+            }),
           );
           m.castShadow = true;
           mesh = m;
@@ -308,7 +348,10 @@ export default function Studio3D() {
           pole.position.y = 0.75;
           const flag = new THREE.Mesh(
             new THREE.ConeGeometry(0.4, 0.6, 4),
-            new THREE.MeshStandardMaterial({ color: 0x22c55e }),
+            new THREE.MeshStandardMaterial({
+              map: t.blockTexture ?? undefined,
+              color: t.blockTexture ? 0xffffff : 0x22c55e,
+            }),
           );
           flag.position.set(0.3, 1.3, 0);
           flag.rotation.z = Math.PI / 2;

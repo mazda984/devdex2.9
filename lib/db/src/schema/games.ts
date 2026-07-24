@@ -31,3 +31,13 @@ export const gameCommentsTable = pgTable("game_comments", {
 });
 
 export type GameComment = typeof gameCommentsTable.$inferSelect;
+
+// One saved 3D Studio scene per user (MVP: single scene, "Save" overwrites it).
+export const studioScenesTable = pgTable("studio_scenes", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().unique().references(() => usersTable.id),
+  data: text("data").notNull(), // JSON-serialized scene objects
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export type StudioScene = typeof studioScenesTable.$inferSelect;

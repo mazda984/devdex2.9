@@ -54,6 +54,10 @@ export const adminKeys = {
   users: () => ["admin", "users"] as const,
 };
 
+export const studioSceneKeys = {
+  mine: () => ["studio-scene"] as const,
+};
+
 // ---------------------------------------------------------------------------
 // Catalog
 // ---------------------------------------------------------------------------
@@ -231,5 +235,33 @@ export function useAdminDeleteGroup() {
   return useMutation({
     mutationFn: (groupId: number) =>
       customFetch<{ success: boolean }>(`/api/admin/groups/${groupId}`, { method: "DELETE" }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Studio 3D scene save/load
+// ---------------------------------------------------------------------------
+
+export function useMyStudioScene(enabled: boolean) {
+  return useQuery({
+    queryKey: studioSceneKeys.mine(),
+    queryFn: () => customFetch<{ data: any[]; updatedAt: string } | null>("/api/studio/scene"),
+    enabled,
+    retry: false,
+  });
+}
+
+export function useSaveStudioScene() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (objects: unknown[]) =>
+      customFetch<{ data: any[]; updatedAt: string }>("/api/studio/scene", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ objects }),
+      }),
+    onSuccess: (result) => {
+      queryClient.setQueryData(studioSceneKeys.mine(), result);
+    },
   });
 }

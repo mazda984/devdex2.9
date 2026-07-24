@@ -5,6 +5,7 @@ import gamesRouter from "./games";
 import groupsRouter from "./groups";
 import catalogRouter from "./catalog";
 import adminRouter from "./admin";
+import studioRouter from "./studio";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(gamesRouter);
 router.use(groupsRouter);
 router.use(catalogRouter);
 router.use(adminRouter);
+router.use(studioRouter);
 
 export default router;

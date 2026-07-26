@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import {
   RegisterBody,
   LoginBody,
@@ -96,7 +96,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const [foundUser] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.email, email))
+    .where(or(eq(usersTable.email, email), eq(usersTable.username, email)))
     .limit(1);
 
   if (!foundUser) {

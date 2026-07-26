@@ -20,7 +20,7 @@ import {
 import { Gamepad2, Loader2, ArrowRight } from "lucide-react";
 
 const formSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().min(1, "Email or username is required"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -99,9 +99,9 @@ export default function Login() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="font-semibold text-foreground">Email</FormLabel>
+                    <FormLabel className="font-semibold text-foreground">Email or Username</FormLabel>
                     <FormControl>
-                      <Input placeholder="you@example.com" className="h-12 bg-background border-border" {...field} />
+                      <Input placeholder="you@example.com or username" className="h-12 bg-background border-border" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

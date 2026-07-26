@@ -132,6 +132,15 @@ export function useGameDiscovery() {
   });
 }
 
+export function useUserProfile(userId: number) {
+  return useQuery({
+    queryKey: ["users", userId] as const,
+    queryFn: () => customFetch<User>(`/api/users/${userId}`),
+    enabled: !!userId,
+    retry: false,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Group posts
 // ---------------------------------------------------------------------------

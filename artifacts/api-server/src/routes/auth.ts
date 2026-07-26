@@ -141,4 +141,15 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   res.json(safeUser(user));
 });
 
+// GET /users/:id — public profile info, independent of whether they've published any games
+router.get("/users/:id", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "User not found" }); return; }
+
+  const [foundUser] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!foundUser) { res.status(404).json({ error: "User not found" }); return; }
+
+  res.json(safeUser(foundUser));
+});
+
 export default router;

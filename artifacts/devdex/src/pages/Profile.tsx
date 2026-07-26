@@ -9,6 +9,7 @@ import {
   type Game,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
+import { useUserProfile } from "@/lib/extra-api";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
@@ -35,12 +36,15 @@ export default function Profile() {
   const { toast } = useToast();
   const [gameToDelete, setGameToDelete] = React.useState<Game | null>(null);
 
-  const { data: games, isLoading, error } = useGetUserGames(userId, {
+  const { data: games, isLoading: gamesLoading } = useGetUserGames(userId, {
     query: {
       enabled: !!userId,
       queryKey: getGetUserGamesQueryKey(userId)
     }
   });
+
+  const { data: user, isLoading: userLoading, error } = useUserProfile(userId);
+  const isLoading = userLoading || gamesLoading;
 
   const deleteGame = useDeleteGame({
     mutation: {
@@ -61,7 +65,6 @@ export default function Profile() {
   });
 
   const isOwnProfile = currentUser?.id === userId;
-  const user = games && games.length > 0 ? games[0].author : null;
 
   if (isLoading) {
     return <div className="flex-1 flex items-center justify-center min-h-[60vh]"><Loader /></div>;

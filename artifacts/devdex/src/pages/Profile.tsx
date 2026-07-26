@@ -9,7 +9,7 @@ import {
   type Game,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
-import { useUserProfile } from "@/lib/extra-api";
+import { useUserProfile, usePlayHistory, useFriendStatus, useSendFriendRequest, useAcceptFriendRequest, useDeclineFriendRequest, useRemoveFriend } from "@/lib/extra-api";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserCircle, Calendar, PlusSquare, Gamepad2 } from "lucide-react";
+import { UserCircle, Calendar, PlusSquare, Gamepad2, UserPlus, MessageCircle } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Profile() {
@@ -65,6 +65,20 @@ export default function Profile() {
   });
 
   const isOwnProfile = currentUser?.id === userId;
+
+  const { data: playHistory } = usePlayHistory(userId);
+  const { data: friendStatus } = useFriendStatus(userId);
+  const sendFriendRequest = useSendFriendRequest();
+  const acceptFriendRequest = useAcceptFriendRequest();
+  const declineFriendRequest = useDeclineFriendRequest();
+  const removeFriend = useRemoveFriend();
+
+  const handleSendFriendRequest = () => {
+    sendFriendRequest.mutate(userId, {
+      onSuccess: () => toast({ title: "Arkadaşlık isteği gönderildi" }),
+      onError: (err: any) => toast({ title: "Gönderilemedi", description: err?.data?.error, variant: "destructive" }),
+    });
+  };
 
   if (isLoading) {
     return <div className="flex-1 flex items-center justify-center min-h-[60vh]"><Loader /></div>;
@@ -110,15 +124,71 @@ export default function Profile() {
           </div>
         </div>
         
-        {isOwnProfile && (
+        {isOwnProfile ? (
           <div>
             <Button className="font-bold shadow-sm" onClick={() => setLocation("/submit")}>
               <PlusSquare className="w-4 h-4 mr-2" />
               Submit Game
             </Button>
           </div>
-        )}
+        ) : currentUser ? (
+          <div className="flex flex-col gap-2">
+            {friendStatus?.status === "none" && (
+              <Button className="font-bold shadow-sm" onClick={handleSendFriendRequest} disabled={sendFriendRequest.isPending}>
+                <UserPlus className="w-4 h-4 mr-2" /> Add Friend
+              </Button>
+            )}
+            {friendStatus?.status === "pending_sent" && (
+              <Button variant="outline" disabled className="font-bold">
+                İstek Gönderildi
+              </Button>
+            )}
+            {friendStatus?.status === "pending_received" && friendStatus.friendshipId && (
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => acceptFriendRequest.mutate(friendStatus.friendshipId!, { onSuccess: () => toast({ title: "Arkadaş oldunuz" }) })}
+                >
+                  Kabul Et
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => declineFriendRequest.mutate(friendStatus.friendshipId!)}
+                >
+                  Reddet
+                </Button>
+              </div>
+            )}
+            {friendStatus?.status === "friends" && (
+              <div className="flex gap-2">
+                <Button className="font-bold shadow-sm" onClick={() => setLocation(`/messages/${userId}`)}>
+                  <MessageCircle className="w-4 h-4 mr-2" /> Message
+                </Button>
+                {friendStatus.friendshipId && (
+                  <Button
+                    variant="outline"
+                    onClick={() => removeFriend.mutate(friendStatus.friendshipId!, { onSuccess: () => toast({ title: "Arkadaşlıktan çıkarıldı" }) })}
+                  >
+                    Arkadaşlıktan Çıkar
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
+
+      {playHistory && playHistory.length > 0 && (
+        <div className="space-y-6 mb-12">
+          <h2 className="text-2xl font-bold text-foreground">Recently Played</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            {playHistory.map((game: any) => (
+              <GameCard key={game.id} game={game} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* User Games */}
       <div className="space-y-6">

@@ -1,204 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, gamesTable, gameCommentsTable, groupsTable, groupMembersTable, groupPostsTable, groupGamesTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
-import { requireAdmin } from "../lib/auth";
+import { requireAdmin, isProtectedAdminEmail } from "../lib/auth";
 
 const router: IRouter = Router();
-
-// GET /admin/self-heal?secret=... — idempotent schema repair.
-//
-// Why this exists: sometimes the "drizzle-kit push" step during deploy gets
-// skipped or fails silently, leaving the live database missing tables/columns
-// that the app code already expects (e.g. games.last_played_at). When that
-// happens every query touching the missing bits 500s.
-//
-// This endpoint (re)creates any missing tables and adds any missing columns
-// to match the current schema. It never drops or alters existing data — it
-// only ever CREATEs things that don't exist yet, so it's safe to hit more
-// than once. It does NOT require a working login/session (which may itself
-// be broken if the users/sessions tables are affected) — instead it's gated
-// by a secret so only someone with the link can run it.
-//
-// Usage: open, in a browser, the URL:
-//   https://<your-api-host>/api/admin/self-heal?secret=<ADMIN_SELF_HEAL_SECRET>
-router.get("/admin/self-heal", async (req, res): Promise<void> => {
-  const expected = process.env.ADMIN_SELF_HEAL_SECRET;
-  if (!expected) {
-    res.status(500).json({
-      error: "ADMIN_SELF_HEAL_SECRET is not set on the server. Set it as an environment variable, redeploy, then reload this link.",
-    });
-    return;
-  }
-
-  const provided = req.query.secret;
-  if (typeof provided !== "string" || provided !== expected) {
-    res.status(401).json({ error: "Missing or incorrect ?secret=" });
-    return;
-  }
-
-  const ran: string[] = [];
-  const failed: { step: string; error: string }[] = [];
-
-  async function step(label: string, query: ReturnType<typeof sql>) {
-    try {
-      await db.execute(query);
-      ran.push(label);
-    } catch (err) {
-      failed.push({ step: label, error: err instanceof Error ? err.message : String(err) });
-    }
-  }
-
-  // --- Tables (created only if missing; existing tables/data untouched) ---
-  await step("create table users", sql`
-    CREATE TABLE IF NOT EXISTS "users" (
-      "id" serial PRIMARY KEY,
-      "username" text NOT NULL UNIQUE,
-      "email" text NOT NULL UNIQUE,
-      "password_hash" text NOT NULL,
-      "avatar_url" text,
-      "dexbux" integer NOT NULL DEFAULT 0,
-      "is_admin" boolean NOT NULL DEFAULT false,
-      "avatar_item_id" integer,
-      "created_at" timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table sessions", sql`
-    CREATE TABLE IF NOT EXISTS "sessions" (
-      "id" text PRIMARY KEY,
-      "user_id" text NOT NULL,
-      "expires_at" timestamptz NOT NULL,
-      "created_at" timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table games", sql`
-    CREATE TABLE IF NOT EXISTS "games" (
-      "id" serial PRIMARY KEY,
-      "title" text NOT NULL,
-      "description" text,
-      "game_url" text NOT NULL,
-      "cover_image_url" text,
-      "slug" text NOT NULL UNIQUE,
-      "category" text,
-      "featured" boolean NOT NULL DEFAULT false,
-      "play_count" integer NOT NULL DEFAULT 0,
-      "last_played_at" timestamptz,
-      "author_id" integer NOT NULL REFERENCES "users"("id"),
-      "created_at" timestamptz NOT NULL DEFAULT now(),
-      "updated_at" timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table game_comments", sql`
-    CREATE TABLE IF NOT EXISTS "game_comments" (
-      "id" serial PRIMARY KEY,
-      "game_id" integer NOT NULL REFERENCES "games"("id"),
-      "author_id" integer NOT NULL REFERENCES "users"("id"),
-      "content" text NOT NULL,
-      "created_at" timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table studio_scenes", sql`
-    CREATE TABLE IF NOT EXISTS "studio_scenes" (
-      "id" serial PRIMARY KEY,
-      "slug" text NOT NULL UNIQUE,
-      "author_id" integer NOT NULL REFERENCES "users"("id"),
-      "data" text NOT NULL,
-      "created_at" timestamptz NOT NULL DEFAULT now(),
-      "updated_at" timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table catalog_items", sql`
-    CREATE TABLE IF NOT EXISTS "catalog_items" (
-      "id" serial PRIMARY KEY,
-      "name" text NOT NULL,
-      "image_url" text NOT NULL,
-      "price" integer NOT NULL,
-      "creator_id" integer NOT NULL REFERENCES "users"("id"),
-      "created_at" timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table catalog_purchases", sql`
-    CREATE TABLE IF NOT EXISTS "catalog_purchases" (
-      "id" serial PRIMARY KEY,
-      "item_id" integer NOT NULL REFERENCES "catalog_items"("id"),
-      "user_id" integer NOT NULL REFERENCES "users"("id"),
-      "purchased_at" timestamptz NOT NULL DEFAULT now(),
-      UNIQUE("item_id", "user_id")
-    )
-  `);
-
-  await step("create table groups", sql`
-    CREATE TABLE IF NOT EXISTS "groups" (
-      "id" serial PRIMARY KEY,
-      "name" text NOT NULL,
-      "description" text,
-      "slug" text NOT NULL UNIQUE,
-      "cover_image_url" text,
-      "is_public" boolean NOT NULL DEFAULT true,
-      "author_id" integer NOT NULL REFERENCES "users"("id"),
-      "member_count" integer NOT NULL DEFAULT 1,
-      "created_at" timestamp NOT NULL DEFAULT now(),
-      "updated_at" timestamp NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table group_members", sql`
-    CREATE TABLE IF NOT EXISTS "group_members" (
-      "id" serial PRIMARY KEY,
-      "group_id" integer NOT NULL REFERENCES "groups"("id"),
-      "user_id" integer NOT NULL REFERENCES "users"("id"),
-      "role" text NOT NULL DEFAULT 'member',
-      "joined_at" timestamp NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table group_posts", sql`
-    CREATE TABLE IF NOT EXISTS "group_posts" (
-      "id" serial PRIMARY KEY,
-      "group_id" integer NOT NULL REFERENCES "groups"("id"),
-      "author_id" integer NOT NULL REFERENCES "users"("id"),
-      "content" text NOT NULL,
-      "created_at" timestamptz NOT NULL DEFAULT now()
-    )
-  `);
-
-  await step("create table group_games", sql`
-    CREATE TABLE IF NOT EXISTS "group_games" (
-      "id" serial PRIMARY KEY,
-      "group_id" integer NOT NULL REFERENCES "groups"("id"),
-      "game_id" integer NOT NULL REFERENCES "games"("id"),
-      "added_by" integer NOT NULL REFERENCES "users"("id"),
-      "added_at" timestamptz NOT NULL DEFAULT now(),
-      UNIQUE("group_id", "game_id")
-    )
-  `);
-
-  // --- Columns (added only if missing, on tables that may already exist
-  // from before this feature was added) ---
-  await step("users.avatar_item_id", sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatar_item_id" integer`);
-  await step("users.dexbux", sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "dexbux" integer NOT NULL DEFAULT 0`);
-  await step("users.is_admin", sql`ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "is_admin" boolean NOT NULL DEFAULT false`);
-  await step("games.category", sql`ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "category" text`);
-  await step("games.featured", sql`ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "featured" boolean NOT NULL DEFAULT false`);
-  await step("games.play_count", sql`ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "play_count" integer NOT NULL DEFAULT 0`);
-  await step("games.last_played_at", sql`ALTER TABLE "games" ADD COLUMN IF NOT EXISTS "last_played_at" timestamptz`);
-  await step("groups.member_count", sql`ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "member_count" integer NOT NULL DEFAULT 1`);
-  await step("groups.is_public", sql`ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "is_public" boolean NOT NULL DEFAULT true`);
-
-  res.status(failed.length > 0 ? 207 : 200).json({
-    success: failed.length === 0,
-    message: failed.length === 0
-      ? "Database schema is now in sync with the app. Reload the site — the 500s should be gone."
-      : "Some steps failed — see 'failed' below. Steps that succeeded are safe to leave as-is; re-running this link is harmless.",
-    ran,
-    failed,
-  });
-});
 
 function safeUser(user: typeof usersTable.$inferSelect) {
   return {
@@ -209,6 +14,7 @@ function safeUser(user: typeof usersTable.$inferSelect) {
     dexbux: user.dexbux,
     isAdmin: user.isAdmin,
     avatarItemId: user.avatarItemId,
+    bannedUntil: user.bannedUntil ? user.bannedUntil.toISOString() : null,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -224,10 +30,19 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res): Promise<void> =
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!target) { res.status(404).json({ error: "User not found" }); return; }
+
   const { isAdmin, dexbux } = req.body as { isAdmin?: boolean; dexbux?: number };
   const patch: Partial<{ isAdmin: boolean; dexbux: number }> = {};
 
-  if (typeof isAdmin === "boolean") patch.isAdmin = isAdmin;
+  if (typeof isAdmin === "boolean") {
+    if (isAdmin === false && isProtectedAdminEmail(target.email)) {
+      res.status(403).json({ error: "Bu hesabın admin yetkisi kaldırılamaz" });
+      return;
+    }
+    patch.isAdmin = isAdmin;
+  }
   if (typeof dexbux === "number" && Number.isInteger(dexbux) && dexbux >= 0) patch.dexbux = dexbux;
 
   if (Object.keys(patch).length === 0) {
@@ -238,6 +53,39 @@ router.patch("/admin/users/:id", requireAdmin, async (req, res): Promise<void> =
   const [updated] = await db.update(usersTable).set(patch).where(eq(usersTable.id, id)).returning();
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
 
+  res.json(safeUser(updated));
+});
+
+const MAX_BAN_HOURS = 24;
+
+// POST /admin/users/:id/ban — suspend access for up to 24 hours (account itself is never deleted)
+router.post("/admin/users/:id/ban", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!target) { res.status(404).json({ error: "User not found" }); return; }
+
+  if (isProtectedAdminEmail(target.email) || target.isAdmin) {
+    res.status(403).json({ error: "Bir admin banlanamaz" });
+    return;
+  }
+
+  const { hours } = req.body as { hours?: number };
+  const clampedHours = Math.min(Math.max(typeof hours === "number" ? hours : MAX_BAN_HOURS, 0.0166), MAX_BAN_HOURS);
+  const bannedUntil = new Date(Date.now() + clampedHours * 60 * 60 * 1000);
+
+  const [updated] = await db.update(usersTable).set({ bannedUntil }).where(eq(usersTable.id, id)).returning();
+  res.json(safeUser(updated));
+});
+
+// POST /admin/users/:id/unban — lift a ban early
+router.post("/admin/users/:id/unban", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [updated] = await db.update(usersTable).set({ bannedUntil: null }).where(eq(usersTable.id, id)).returning();
+  if (!updated) { res.status(404).json({ error: "User not found" }); return; }
   res.json(safeUser(updated));
 });
 
@@ -277,6 +125,143 @@ router.get("/admin/debug", requireAdmin, async (_req, res): Promise<void> => {
     groupCount: groupCount?.count ?? 0,
     sampleGames,
   });
+});
+
+// GET /admin/migrate — idempotent, self-healing schema fixup.
+// Adds any missing columns/tables directly via raw SQL, in case `drizzle-kit
+// push` didn't run (or didn't finish) during a deploy. Safe to visit
+// multiple times — every statement is guarded with IF NOT EXISTS / OR REPLACE.
+router.get("/admin/migrate", requireAdmin, async (_req, res): Promise<void> => {
+  const ran: string[] = [];
+  try {
+    await db.execute(sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_played_at timestamptz`);
+    ran.push("games.last_played_at");
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS game_comments (
+        id serial PRIMARY KEY,
+        game_id integer NOT NULL REFERENCES games(id),
+        author_id integer NOT NULL REFERENCES users(id),
+        content text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    ran.push("game_comments table");
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS group_games (
+        id serial PRIMARY KEY,
+        group_id integer NOT NULL REFERENCES groups(id),
+        game_id integer NOT NULL REFERENCES games(id),
+        added_by integer NOT NULL REFERENCES users(id),
+        added_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE(group_id, game_id)
+      )
+    `);
+    ran.push("group_games table");
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS group_posts (
+        id serial PRIMARY KEY,
+        group_id integer NOT NULL REFERENCES groups(id),
+        author_id integer NOT NULL REFERENCES users(id),
+        content text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    ran.push("group_posts table");
+
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS dexbux integer NOT NULL DEFAULT 0`);
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false`);
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_item_id integer`);
+    ran.push("users.dexbux/is_admin/avatar_item_id");
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS catalog_items (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        image_url text NOT NULL,
+        price integer NOT NULL,
+        creator_id integer NOT NULL REFERENCES users(id),
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS catalog_purchases (
+        id serial PRIMARY KEY,
+        item_id integer NOT NULL REFERENCES catalog_items(id),
+        user_id integer NOT NULL REFERENCES users(id),
+        purchased_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE(item_id, user_id)
+      )
+    `);
+    ran.push("catalog tables");
+
+    // studio_scenes may still exist in its old (pre-publish) shape from
+    // earlier testing — that data isn't important, so replace it outright
+    // with the current shape if the new columns aren't there yet.
+    const studioSceneCols = await db.execute(sql`
+      SELECT column_name FROM information_schema.columns WHERE table_name = 'studio_scenes'
+    `);
+    const colNames = (studioSceneCols as any).rows?.map((r: any) => r.column_name) ?? [];
+    if (colNames.length > 0 && !colNames.includes("slug")) {
+      await db.execute(sql`DROP TABLE IF EXISTS studio_scenes`);
+      ran.push("studio_scenes (dropped old shape)");
+    }
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS studio_scenes (
+        id serial PRIMARY KEY,
+        slug text NOT NULL UNIQUE,
+        author_id integer NOT NULL REFERENCES users(id),
+        data text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    ran.push("studio_scenes table (current shape)");
+
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_until timestamptz`);
+    ran.push("users.banned_until");
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS friendships (
+        id serial PRIMARY KEY,
+        requester_id integer NOT NULL REFERENCES users(id),
+        addressee_id integer NOT NULL REFERENCES users(id),
+        status text NOT NULL DEFAULT 'pending',
+        created_at timestamptz NOT NULL DEFAULT now(),
+        responded_at timestamptz,
+        UNIQUE(requester_id, addressee_id)
+      )
+    `);
+    ran.push("friendships table");
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS messages (
+        id serial PRIMARY KEY,
+        sender_id integer NOT NULL REFERENCES users(id),
+        receiver_id integer NOT NULL REFERENCES users(id),
+        content text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    ran.push("messages table");
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS game_plays (
+        id serial PRIMARY KEY,
+        user_id integer NOT NULL REFERENCES users(id),
+        game_id integer NOT NULL REFERENCES games(id),
+        played_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE(user_id, game_id)
+      )
+    `);
+    ran.push("game_plays table");
+
+    res.json({ success: true, ran });
+  } catch (err: any) {
+    res.status(500).json({ success: false, ran, error: err?.message ?? String(err) });
+  }
 });
 
 export default router;

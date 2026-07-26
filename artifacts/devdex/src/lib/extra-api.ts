@@ -303,6 +303,149 @@ export function useAdminDeleteGroup() {
 }
 
 // ---------------------------------------------------------------------------
+// Play history
+// ---------------------------------------------------------------------------
+
+export function usePlayHistory(userId: number) {
+  return useQuery({
+    queryKey: ["play-history", userId] as const,
+    queryFn: () => customFetch<any[]>(`/api/users/${userId}/play-history`),
+    enabled: !!userId,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Friends
+// ---------------------------------------------------------------------------
+
+export type FriendStatus = "self" | "none" | "pending_sent" | "pending_received" | "friends";
+
+export function useFriendStatus(userId: number) {
+  return useQuery({
+    queryKey: ["friend-status", userId] as const,
+    queryFn: () => customFetch<{ status: FriendStatus; friendshipId?: number }>(`/api/friends/status/${userId}`),
+    enabled: !!userId,
+  });
+}
+
+export function useSendFriendRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: number) =>
+      customFetch<any>("/api/friends/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      }),
+    onSuccess: (_data, userId) => {
+      queryClient.invalidateQueries({ queryKey: ["friend-status", userId] });
+    },
+  });
+}
+
+export function useFriendRequests() {
+  return useQuery({
+    queryKey: ["friend-requests"] as const,
+    queryFn: () => customFetch<any[]>("/api/friends/requests"),
+  });
+}
+
+export function useAcceptFriendRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (friendshipId: number) => customFetch<any>(`/api/friends/${friendshipId}/accept`, { method: "POST" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["friend-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["friends-mine"] });
+    },
+  });
+}
+
+export function useDeclineFriendRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (friendshipId: number) => customFetch<any>(`/api/friends/${friendshipId}/decline`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["friend-requests"] }),
+  });
+}
+
+export function useRemoveFriend() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (friendshipId: number) => customFetch<any>(`/api/friends/${friendshipId}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["friends-mine"] }),
+  });
+}
+
+export function useMyFriends() {
+  return useQuery({
+    queryKey: ["friends-mine"] as const,
+    queryFn: () => customFetch<User[]>("/api/friends/mine"),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Direct messages
+// ---------------------------------------------------------------------------
+
+export function useConversation(userId: number) {
+  return useQuery({
+    queryKey: ["messages", userId] as const,
+    queryFn: () => customFetch<any[]>(`/api/messages/${userId}`),
+    enabled: !!userId,
+    refetchInterval: 4000,
+  });
+}
+
+export function useSendMessage(userId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (content: string) =>
+      customFetch<any>(`/api/messages/${userId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages", userId] });
+      queryClient.invalidateQueries({ queryKey: ["inbox"] });
+    },
+  });
+}
+
+export function useInbox() {
+  return useQuery({
+    queryKey: ["inbox"] as const,
+    queryFn: () => customFetch<any[]>("/api/messages"),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Admin — ban/unban
+// ---------------------------------------------------------------------------
+
+export function useBanUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, hours }: { id: number; hours: number }) =>
+      customFetch<User>(`/api/admin/users/${id}/ban`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hours }),
+      }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: adminKeys.users() }),
+  });
+}
+
+export function useUnbanUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => customFetch<User>(`/api/admin/users/${id}/unban`, { method: "POST" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: adminKeys.users() }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Studio 3D — publish a scene as a free, public space with a random slug
 // ---------------------------------------------------------------------------
 

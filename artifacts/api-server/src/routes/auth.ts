@@ -112,6 +112,14 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   const user = await ensureAdminForSpecialEmail(foundUser);
 
+  if (user.bannedUntil && user.bannedUntil > new Date()) {
+    res.status(403).json({
+      error: `Hesabın ${user.bannedUntil.toLocaleString("tr-TR")} tarihine kadar askıya alındı.`,
+      bannedUntil: user.bannedUntil.toISOString(),
+    });
+    return;
+  }
+
   await createSession(user.id, res);
 
   res.json({ user: safeUser(user) });
@@ -135,6 +143,11 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   const user = await getSessionUser(sessionId);
   if (!user) {
     res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+
+  if (user.bannedUntil && user.bannedUntil > new Date()) {
+    res.status(403).json({ error: "Banned", bannedUntil: user.bannedUntil.toISOString() });
     return;
   }
 

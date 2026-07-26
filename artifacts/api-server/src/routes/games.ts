@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, gamesTable, usersTable, gameCommentsTable, groupGamesTable } from "@workspace/db";
+import { db, gamesTable, usersTable, gameCommentsTable, groupGamesTable, gamePlaysTable } from "@workspace/db";
 import { eq, ilike, or, desc, sql } from "drizzle-orm";
 import {
   CreateGameBody,
@@ -290,6 +290,18 @@ router.get("/games/:id", async (req, res): Promise<void> => {
     if (updatedAuthor) author = updatedAuthor;
   }
 
+  // Record this play in the player's history (upsert so repeat plays just
+  // bump the timestamp rather than creating duplicate rows).
+  if (player) {
+    await db
+      .insert(gamePlaysTable)
+      .values({ userId: player.id, gameId: result.games.id })
+      .onConflictDoUpdate({
+        target: [gamePlaysTable.userId, gamePlaysTable.gameId],
+        set: { playedAt: new Date() },
+      });
+  }
+
   res.json(formatGame({ ...result.games, playCount: result.games.playCount + 1 }, author));
 });
 
@@ -399,6 +411,23 @@ router.get("/users/:id/games", async (req, res): Promise<void> => {
     .innerJoin(usersTable, eq(gamesTable.authorId, usersTable.id))
     .where(eq(gamesTable.authorId, params.data.id))
     .orderBy(desc(gamesTable.createdAt));
+
+  res.json(results.map((r) => formatGame(r.games, r.users)));
+});
+
+// GET /users/:id/play-history — games this user has played, most recent first
+router.get("/users/:id/play-history", async (req, res): Promise<void> => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const results = await db
+    .select()
+    .from(gamePlaysTable)
+    .innerJoin(gamesTable, eq(gamePlaysTable.gameId, gamesTable.id))
+    .innerJoin(usersTable, eq(gamesTable.authorId, usersTable.id))
+    .where(eq(gamePlaysTable.userId, userId))
+    .orderBy(desc(gamePlaysTable.playedAt))
+    .limit(24);
 
   res.json(results.map((r) => formatGame(r.games, r.users)));
 });

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { useAdminUsers, useUpdateAdminUser } from "@/lib/extra-api";
+import { useAdminUsers, useUpdateAdminUser, useBanUser, useUnbanUser } from "@/lib/extra-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader } from "@/components/ui/Loader";
@@ -14,6 +14,8 @@ export default function Admin() {
   const { toast } = useToast();
   const { data: users, isLoading } = useAdminUsers();
   const updateUser = useUpdateAdminUser();
+  const banUser = useBanUser();
+  const unbanUser = useUnbanUser();
   const [dexbuxDraft, setDexbuxDraft] = useState<Record<number, string>>({});
 
   React.useEffect(() => {
@@ -31,9 +33,26 @@ export default function Admin() {
       { id, isAdmin: !current },
       {
         onSuccess: () => toast({ title: "Güncellendi" }),
-        onError: () => toast({ title: "Güncellenemedi", variant: "destructive" }),
+        onError: (err: any) => toast({ title: "Güncellenemedi", description: err?.data?.error, variant: "destructive" }),
       },
     );
+  }
+
+  function handleBan(id: number) {
+    banUser.mutate(
+      { id, hours: 24 },
+      {
+        onSuccess: () => toast({ title: "Kullanıcı 24 saatliğine banlandı" }),
+        onError: (err: any) => toast({ title: "Banlanamadı", description: err?.data?.error, variant: "destructive" }),
+      },
+    );
+  }
+
+  function handleUnban(id: number) {
+    unbanUser.mutate(id, {
+      onSuccess: () => toast({ title: "Ban kaldırıldı" }),
+      onError: () => toast({ title: "Kaldırılamadı", variant: "destructive" }),
+    });
   }
 
   function setDexbux(id: number) {
@@ -70,6 +89,7 @@ export default function Admin() {
                 <th className="p-4">Email</th>
                 <th className="p-4">DexBux</th>
                 <th className="p-4">Admin</th>
+                <th className="p-4">Ban</th>
               </tr>
             </thead>
             <tbody>
@@ -102,6 +122,24 @@ export default function Admin() {
                     >
                       {u.isAdmin ? "Admin ✓" : "Admin yap"}
                     </Button>
+                  </td>
+                  <td className="p-4">
+                    {u.isAdmin ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (u as any).bannedUntil && new Date((u as any).bannedUntil) > new Date() ? (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs text-destructive font-semibold">
+                          {new Date((u as any).bannedUntil).toLocaleString("tr-TR")}'e kadar
+                        </span>
+                        <Button size="sm" variant="outline" onClick={() => handleUnban(u.id)} disabled={unbanUser.isPending}>
+                          Banı Kaldır
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="destructive" onClick={() => handleBan(u.id)} disabled={banUser.isPending}>
+                        24s Banla
+                      </Button>
+                    )}
                   </td>
                 </tr>
               ))}

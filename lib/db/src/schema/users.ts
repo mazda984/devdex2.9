@@ -11,6 +11,7 @@ export const usersTable = pgTable("users", {
   // DexBux: the site's virtual currency.
   dexbux: integer("dexbux").notNull().default(0),
   isAdmin: boolean("is_admin").notNull().default(false),
+  bannedUntil: timestamp("banned_until", { withTimezone: true }),
   // References catalogItemsTable.id, but left as a plain column (no FK) to
   // avoid a circular import between users.ts and catalog.ts.
   avatarItemId: integer("avatar_item_id"),

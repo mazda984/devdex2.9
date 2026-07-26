@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { Gamepad2, UserCircle, LogOut, PlusSquare, Search, Wrench, Settings as SettingsIcon, Sun, Moon, Users, Coins, ShieldCheck, ShoppingBag } from "lucide-react";
+import { Gamepad2, UserCircle, LogOut, PlusSquare, Search, Wrench, Settings as SettingsIcon, Sun, Moon, Users, Coins, ShieldCheck, ShoppingBag, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/lib/theme";
 
@@ -67,6 +67,9 @@ export default function Navbar() {
                 <Coins className="w-4 h-4 text-amber-500" />
                 {user.dexbux.toLocaleString()}
               </div>
+              <Link href="/messages" className="text-muted-foreground hover:text-foreground p-2 rounded-md hover:bg-secondary" title="Messages">
+                <MessageCircle className="w-5 h-5" />
+              </Link>
               <Link href={`/profile/${user.id}`} className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors">
                 <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden">
                   {user.avatarUrl ? (

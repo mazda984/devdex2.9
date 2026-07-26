@@ -6,6 +6,7 @@ import groupsRouter from "./groups";
 import catalogRouter from "./catalog";
 import adminRouter from "./admin";
 import studioRouter from "./studio";
+import socialRouter from "./social";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(groupsRouter);
 router.use(catalogRouter);
 router.use(adminRouter);
 router.use(studioRouter);
+router.use(socialRouter);
 
 export default router;

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable, gamesTable, gameCommentsTable, groupsTable, groupMembersTable, groupPostsTable, groupGamesTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -67,6 +67,21 @@ router.delete("/admin/groups/:id", requireAdmin, async (req, res): Promise<void>
   await db.delete(groupMembersTable).where(eq(groupMembersTable.groupId, id));
   await db.delete(groupsTable).where(eq(groupsTable.id, id));
   res.json({ success: true });
+});
+
+// GET /admin/debug — temporary diagnostics: real row counts per table
+router.get("/admin/debug", requireAdmin, async (_req, res): Promise<void> => {
+  const [gameCount] = await db.select({ count: sql<number>`count(*)::int` }).from(gamesTable);
+  const [userCount] = await db.select({ count: sql<number>`count(*)::int` }).from(usersTable);
+  const [groupCount] = await db.select({ count: sql<number>`count(*)::int` }).from(groupsTable);
+  const sampleGames = await db.select({ id: gamesTable.id, title: gamesTable.title, authorId: gamesTable.authorId }).from(gamesTable).limit(5);
+
+  res.json({
+    gameCount: gameCount?.count ?? 0,
+    userCount: userCount?.count ?? 0,
+    groupCount: groupCount?.count ?? 0,
+    sampleGames,
+  });
 });
 
 export default router;

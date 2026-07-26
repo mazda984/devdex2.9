@@ -13,6 +13,7 @@ export const gamesTable = pgTable("games", {
   category: text("category"),
   featured: boolean("featured").notNull().default(false),
   playCount: integer("play_count").notNull().default(0),
+  lastPlayedAt: timestamp("last_played_at", { withTimezone: true }),
   authorId: integer("author_id").notNull().references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
@@ -32,11 +33,14 @@ export const gameCommentsTable = pgTable("game_comments", {
 
 export type GameComment = typeof gameCommentsTable.$inferSelect;
 
-// One saved 3D Studio scene per user (MVP: single scene, "Save" overwrites it).
+// A published 3D Studio scene. Each "Save" creates a new one with a random,
+// free, publicly shareable slug — this is not tied 1:1 to a user.
 export const studioScenesTable = pgTable("studio_scenes", {
   id: serial("id").primaryKey(),
-  userId: integer("user_id").notNull().unique().references(() => usersTable.id),
+  slug: text("slug").notNull().unique(),
+  authorId: integer("author_id").notNull().references(() => usersTable.id),
   data: text("data").notNull(), // JSON-serialized scene objects
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

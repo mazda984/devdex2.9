@@ -55,7 +55,8 @@ export const adminKeys = {
 };
 
 export const studioSceneKeys = {
-  mine: () => ["studio-scene"] as const,
+  mine: () => ["studio-scenes", "mine"] as const,
+  bySlug: (slug: string) => ["studio-scenes", slug] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -118,6 +119,19 @@ export function useEquipCatalogItem() {
   });
 }
 
+export interface DiscoveryData {
+  activelyPlayed: any[];
+  popular: any[];
+  recommended: any[];
+}
+
+export function useGameDiscovery() {
+  return useQuery({
+    queryKey: ["games", "discovery"] as const,
+    queryFn: () => customFetch<DiscoveryData>("/api/games/discovery"),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Group posts
 // ---------------------------------------------------------------------------
@@ -154,6 +168,47 @@ export function useDeleteGroupPost(groupId: number) {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: groupPostKeys.list(groupId) });
+    },
+  });
+}
+
+export function useDeleteGroup() {
+  return useMutation({
+    mutationFn: (groupId: number) =>
+      customFetch<{ success: boolean }>(`/api/groups/${groupId}`, { method: "DELETE" }),
+  });
+}
+
+export function useGroupGames(groupId: number) {
+  return useQuery({
+    queryKey: ["group-games", groupId] as const,
+    queryFn: () => customFetch<any[]>(`/api/groups/${groupId}/games`),
+    enabled: !!groupId,
+  });
+}
+
+export function useAddGroupGame(groupId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gameId: number) =>
+      customFetch<any>(`/api/groups/${groupId}/games`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId }),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group-games", groupId] });
+    },
+  });
+}
+
+export function useRemoveGroupGame(groupId: number) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (gameId: number) =>
+      customFetch<{ success: boolean }>(`/api/groups/${groupId}/games/${gameId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["group-games", groupId] });
     },
   });
 }
@@ -239,29 +294,47 @@ export function useAdminDeleteGroup() {
 }
 
 // ---------------------------------------------------------------------------
-// Studio 3D scene save/load
+// Studio 3D — publish a scene as a free, public space with a random slug
 // ---------------------------------------------------------------------------
 
-export function useMyStudioScene(enabled: boolean) {
+export interface PublishedScene {
+  slug: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface StudioSceneWithData extends PublishedScene {
+  data: any[];
+  author?: User;
+}
+
+export function useMyPublishedScenes() {
   return useQuery({
     queryKey: studioSceneKeys.mine(),
-    queryFn: () => customFetch<{ data: any[]; updatedAt: string } | null>("/api/studio/scene"),
-    enabled,
-    retry: false,
+    queryFn: () => customFetch<PublishedScene[]>("/api/studio/scenes/mine"),
   });
 }
 
-export function useSaveStudioScene() {
+export function usePublishStudioScene() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (objects: unknown[]) =>
-      customFetch<{ data: any[]; updatedAt: string }>("/api/studio/scene", {
-        method: "PUT",
+      customFetch<StudioSceneWithData>("/api/studio/scenes", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ objects }),
       }),
-    onSuccess: (result) => {
-      queryClient.setQueryData(studioSceneKeys.mine(), result);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: studioSceneKeys.mine() });
     },
+  });
+}
+
+export function useStudioSceneBySlug(slug: string | undefined) {
+  return useQuery({
+    queryKey: studioSceneKeys.bySlug(slug ?? ""),
+    queryFn: () => customFetch<StudioSceneWithData>(`/api/studio/scenes/${slug}`),
+    enabled: !!slug,
+    retry: false,
   });
 }

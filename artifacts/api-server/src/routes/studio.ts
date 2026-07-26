@@ -1,27 +1,34 @@
 import { Router, type IRouter } from "express";
-import { db, studioScenesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, studioScenesTable, usersTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 import { requireAuth, getSessionUser, getSessionId } from "../lib/auth";
 
 const router: IRouter = Router();
 
-// GET /studio/scene — the current user's saved 3D Studio scene (or null)
-router.get("/studio/scene", requireAuth, async (req, res): Promise<void> => {
-  const sessionId = getSessionId(req);
-  const user = sessionId ? await getSessionUser(sessionId) : null;
-  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+const SLUG_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+function randomSlug(length = 18): string {
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += SLUG_CHARS[Math.floor(Math.random() * SLUG_CHARS.length)];
+  }
+  return out;
+}
 
-  const [scene] = await db.select().from(studioScenesTable).where(eq(studioScenesTable.userId, user.id));
-  if (!scene) { res.json(null); return; }
+function safeUser(user: typeof usersTable.$inferSelect) {
+  return {
+    id: user.id,
+    username: user.username,
+    email: user.email,
+    avatarUrl: user.avatarUrl,
+    dexbux: user.dexbux,
+    isAdmin: user.isAdmin,
+    avatarItemId: user.avatarItemId,
+    createdAt: user.createdAt.toISOString(),
+  };
+}
 
-  res.json({
-    data: JSON.parse(scene.data),
-    updatedAt: scene.updatedAt.toISOString(),
-  });
-});
-
-// PUT /studio/scene — create or overwrite the current user's saved scene
-router.put("/studio/scene", requireAuth, async (req, res): Promise<void> => {
+// POST /studio/scenes — publish the current scene as a new, free, public space
+router.post("/studio/scenes", requireAuth, async (req, res): Promise<void> => {
   const sessionId = getSessionId(req);
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
@@ -32,24 +39,61 @@ router.put("/studio/scene", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const serialized = JSON.stringify(objects);
-
-  const [existing] = await db.select().from(studioScenesTable).where(eq(studioScenesTable.userId, user.id));
-
-  let scene;
-  if (existing) {
-    [scene] = await db
-      .update(studioScenesTable)
-      .set({ data: serialized })
-      .where(eq(studioScenesTable.userId, user.id))
-      .returning();
-  } else {
-    [scene] = await db.insert(studioScenesTable).values({ userId: user.id, data: serialized }).returning();
+  let slug = randomSlug();
+  for (let attempts = 0; attempts < 5; attempts++) {
+    const [existing] = await db.select({ id: studioScenesTable.id }).from(studioScenesTable).where(eq(studioScenesTable.slug, slug));
+    if (!existing) break;
+    slug = randomSlug();
   }
 
-  res.json({
+  const [scene] = await db
+    .insert(studioScenesTable)
+    .values({ slug, authorId: user.id, data: JSON.stringify(objects) })
+    .returning();
+
+  res.status(201).json({
+    slug: scene.slug,
     data: JSON.parse(scene.data),
-    updatedAt: scene.updatedAt.toISOString(),
+    createdAt: scene.createdAt.toISOString(),
+  });
+});
+
+// GET /studio/scenes/mine — the current user's published spaces
+router.get("/studio/scenes/mine", requireAuth, async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const user = sessionId ? await getSessionUser(sessionId) : null;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const results = await db
+    .select()
+    .from(studioScenesTable)
+    .where(eq(studioScenesTable.authorId, user.id))
+    .orderBy(desc(studioScenesTable.createdAt));
+
+  res.json(
+    results.map((s) => ({
+      slug: s.slug,
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+    })),
+  );
+});
+
+// GET /studio/scenes/:slug — public, view/play a published space
+router.get("/studio/scenes/:slug", async (req, res): Promise<void> => {
+  const [scene] = await db
+    .select()
+    .from(studioScenesTable)
+    .innerJoin(usersTable, eq(studioScenesTable.authorId, usersTable.id))
+    .where(eq(studioScenesTable.slug, req.params.slug));
+
+  if (!scene) { res.status(404).json({ error: "Not found" }); return; }
+
+  res.json({
+    slug: scene.studio_scenes.slug,
+    data: JSON.parse(scene.studio_scenes.data),
+    author: safeUser(scene.users),
+    createdAt: scene.studio_scenes.createdAt.toISOString(),
   });
 });
 

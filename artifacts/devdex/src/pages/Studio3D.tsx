@@ -5,8 +5,16 @@ import { Plus, Box as BoxIcon, MapPin, Trash2, Play, Square, Move3d, Save, Loade
 import skyboxUrl from "@/assets/skybox.webp";
 import blockTextureUrl from "@/assets/block-texture.png";
 import { useAuth } from "@/lib/auth";
-import { useMyStudioScene, useSaveStudioScene } from "@/lib/extra-api";
+import { usePublishStudioScene } from "@/lib/extra-api";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 type ObjectType = "part" | "spawnpoint";
 
@@ -32,9 +40,8 @@ export default function Studio3D() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { data: savedScene, isLoading: sceneLoading } = useMyStudioScene(!!user);
-  const saveScene = useSaveStudioScene();
-  const [hasLoadedSaved, setHasLoadedSaved] = useState(false);
+  const publishScene = usePublishStudioScene();
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
   const [objects, setObjects] = useState<SceneObject[]>([
     { id: nextId(), type: "spawnpoint", name: "SpawnPoint", position: { x: 0, y: 0.05, z: 0 } },
@@ -88,25 +95,18 @@ export default function Studio3D() {
     setSelectedId((cur) => (cur === id ? null : cur));
   }, []);
 
-  // Load the user's saved scene once, the first time it becomes available.
-  // Guarded so it doesn't clobber in-progress edits on background refetches.
-  useEffect(() => {
-    if (!hasLoadedSaved && !sceneLoading) {
-      if (savedScene && Array.isArray(savedScene.data) && savedScene.data.length > 0) {
-        setObjects(savedScene.data as SceneObject[]);
-      }
-      setHasLoadedSaved(true);
-    }
-  }, [savedScene, sceneLoading, hasLoadedSaved]);
-
   const handleSave = () => {
     if (!user) {
-      toast({ title: "Kaydetmek için giriş yapmalısın", variant: "destructive" });
+      toast({ title: "Yayınlamak için giriş yapmalısın", variant: "destructive" });
       return;
     }
-    saveScene.mutate(objects, {
-      onSuccess: () => toast({ title: "Kaydedildi" }),
-      onError: () => toast({ title: "Kaydedilemedi", description: "Bir hata oluştu, tekrar dene.", variant: "destructive" }),
+    publishScene.mutate(objects, {
+      onSuccess: (result) => {
+        const base = window.location.origin + import.meta.env.BASE_URL;
+        const url = `${base}play/${result.slug}`;
+        setPublishedUrl(url);
+      },
+      onError: () => toast({ title: "Yayınlanamadı", description: "Bir hata oluştu, tekrar dene.", variant: "destructive" }),
     });
   };
 
@@ -139,9 +139,8 @@ export default function Studio3D() {
     const camera = new THREE.PerspectiveCamera(70, initW / initH, 0.1, 1000);
     camera.position.copy(editCameraState.current.position);
     camera.up.set(0, 1, 0);
+    camera.rotation.order = "YXZ"; // must be set BEFORE lookAt, not after
     camera.lookAt(0, 0, 0);
-    camera.rotation.order = "YXZ";
-    camera.rotation.z = 0; // lookAt can leave a stray roll — kill it so the horizon stays level
     stateRef.current.yaw = camera.rotation.y;
     stateRef.current.pitch = camera.rotation.x;
     editCameraState.current.yaw = stateRef.current.yaw;
@@ -450,11 +449,11 @@ export default function Studio3D() {
               size="sm"
               variant="outline"
               onClick={handleSave}
-              disabled={saveScene.isPending || !user}
+              disabled={publishScene.isPending || !user}
               className="font-semibold bg-white/10 text-white border-white/20 hover:bg-white/20 hover:text-white"
-              title={!user ? "Kaydetmek için giriş yapmalısın" : undefined}
+              title={!user ? "Yayınlamak için giriş yapmalısın" : undefined}
             >
-              {saveScene.isPending ? (
+              {publishScene.isPending ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <Save className="w-4 h-4 mr-2" />
@@ -544,6 +543,36 @@ export default function Studio3D() {
           </div>
         </div>
       )}
+
+      <Dialog open={!!publishedUrl} onOpenChange={(open) => !open && setPublishedUrl(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Alanın yayınlandı! 🎉</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Bu ücretsiz, herkese açık bir alan — bu linki paylaşarak herkes gezebilir/oynayabilir.
+          </p>
+          <div className="flex items-center gap-2">
+            <Input readOnly value={publishedUrl ?? ""} className="text-xs" />
+            <Button
+              size="sm"
+              onClick={() => {
+                if (publishedUrl) {
+                  navigator.clipboard.writeText(publishedUrl);
+                  toast({ title: "Link kopyalandı" });
+                }
+              }}
+            >
+              Kopyala
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPublishedUrl(null)} className="w-full">
+              Kapat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

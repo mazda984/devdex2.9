@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, gamesTable, groupsTable } from "@workspace/db";
+import { db, usersTable, gamesTable, gameCommentsTable, groupsTable, groupMembersTable, groupPostsTable, groupGamesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { requireAdmin } from "../lib/auth";
 
@@ -51,6 +51,8 @@ router.delete("/admin/games/:id", requireAdmin, async (req, res): Promise<void> 
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
+  await db.delete(gameCommentsTable).where(eq(gameCommentsTable.gameId, id));
+  await db.delete(groupGamesTable).where(eq(groupGamesTable.gameId, id));
   await db.delete(gamesTable).where(eq(gamesTable.id, id));
   res.json({ success: true });
 });
@@ -60,6 +62,9 @@ router.delete("/admin/groups/:id", requireAdmin, async (req, res): Promise<void>
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
+  await db.delete(groupPostsTable).where(eq(groupPostsTable.groupId, id));
+  await db.delete(groupGamesTable).where(eq(groupGamesTable.groupId, id));
+  await db.delete(groupMembersTable).where(eq(groupMembersTable.groupId, id));
   await db.delete(groupsTable).where(eq(groupsTable.id, id));
   res.json({ success: true });
 });

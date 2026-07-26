@@ -7,13 +7,26 @@ import {
   useJoinGroup,
   useLeaveGroup
 } from "@workspace/api-client-react";
-import { useGroupPosts, useCreateGroupPost, useDeleteGroupPost } from "@/lib/extra-api";
+import { useGroupPosts, useCreateGroupPost, useDeleteGroupPost, useDeleteGroup, useGroupGames, useAddGroupGame, useRemoveGroupGame } from "@/lib/extra-api";
+import { useGetUserGames } from "@workspace/api-client-react";
+import GameCard from "@/components/ui/GameCard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Image as ImageIcon, Lock, Globe, ArrowLeft, Calendar, UserCircle, Shield, MessageSquare, Trash2, Send } from "lucide-react";
+import { Users, Image as ImageIcon, Lock, Globe, ArrowLeft, Calendar, UserCircle, Shield, MessageSquare, Trash2, Send, Gamepad2, Plus } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 
 export default function GroupDetail() {
@@ -60,6 +73,49 @@ export default function GroupDetail() {
     deletePost.mutate(postId, {
       onSuccess: () => toast({ title: "Gönderi silindi" }),
       onError: () => toast({ title: "Gönderi silinemedi", variant: "destructive" }),
+    });
+  };
+
+  const deleteGroup = useDeleteGroup();
+  const { data: groupGames, isLoading: groupGamesLoading } = useGroupGames(id);
+  const addGroupGame = useAddGroupGame(id);
+  const removeGroupGame = useRemoveGroupGame(id);
+  const { data: myGames } = useGetUserGames(user?.id ?? 0, { query: { enabled: !!user } });
+  const [showAddGame, setShowAddGame] = useState(false);
+
+  const groupGameIds = new Set((groupGames ?? []).map((g: any) => g.id));
+  const addableGames = (myGames ?? []).filter((g) => !groupGameIds.has(g.id));
+
+  const handleDeleteGroup = () => {
+    deleteGroup.mutate(id, {
+      onSuccess: () => {
+        toast({ title: "Grup silindi" });
+        setLocation("/groups");
+      },
+      onError: () => toast({ title: "Grup silinemedi", variant: "destructive" }),
+    });
+  };
+
+  const handleAddGame = (gameId: number) => {
+    addGroupGame.mutate(gameId, {
+      onSuccess: () => {
+        toast({ title: "Oyun gruba eklendi" });
+        setShowAddGame(false);
+      },
+      onError: (err: any) => {
+        toast({
+          title: "Eklenemedi",
+          description: err?.data?.error || "Bir hata oluştu.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
+
+  const handleRemoveGame = (gameId: number) => {
+    removeGroupGame.mutate(gameId, {
+      onSuccess: () => toast({ title: "Oyun gruptan kaldırıldı" }),
+      onError: () => toast({ title: "Kaldırılamadı", variant: "destructive" }),
     });
   };
 
@@ -218,9 +274,39 @@ export default function GroupDetail() {
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <Link href="/groups" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground mb-8 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Back to Groups
-        </Link>
+        <div className="flex items-center justify-between mb-8">
+          <Link href="/groups" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4" /> Back to Groups
+          </Link>
+
+          {(isOwner || user?.isAdmin) && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-destructive hover:text-destructive-foreground hover:bg-destructive border-destructive/40">
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete Group
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Bu grubu silmek istediğine emin misin?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    "{group.name}" ve tüm gönderileri kalıcı olarak silinecek. Bu işlem geri alınamaz.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={deleteGroup.isPending}
+                    onClick={handleDeleteGroup}
+                  >
+                    {deleteGroup.isPending ? "Siliniyor..." : "Sil"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Content */}
@@ -302,6 +388,64 @@ export default function GroupDetail() {
                 </div>
               ) : (
                 <p className="text-muted-foreground text-sm text-center py-8">Henüz gönderi yok.</p>
+              )}
+            </section>
+
+            <section className="bg-card rounded-xl border border-border p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-4 relative">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <Gamepad2 className="w-5 h-5" /> Games
+                </h2>
+                {isOwner && (
+                  <div>
+                    <Button size="sm" variant="outline" onClick={() => setShowAddGame((v) => !v)}>
+                      <Plus className="w-4 h-4 mr-1" /> Oyun Ekle
+                    </Button>
+                    {showAddGame && (
+                      <div className="absolute top-10 right-0 bg-card border border-border rounded-lg shadow-lg overflow-hidden w-64 z-20 max-h-72 overflow-y-auto">
+                        {addableGames.length === 0 ? (
+                          <p className="text-xs text-muted-foreground text-center py-4 px-3">
+                            Eklenecek yeni bir oyunun yok.
+                          </p>
+                        ) : (
+                          addableGames.map((g) => (
+                            <button
+                              key={g.id}
+                              onClick={() => handleAddGame(g.id)}
+                              disabled={addGroupGame.isPending}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-secondary transition-colors"
+                            >
+                              {g.title}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {groupGamesLoading ? (
+                <div className="py-8 flex justify-center"><Loader /></div>
+              ) : groupGames && groupGames.length > 0 ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {groupGames.map((g: any) => (
+                    <div key={g.id} className="relative">
+                      <GameCard game={g} />
+                      {(isOwner || user?.isAdmin) && (
+                        <button
+                          onClick={() => handleRemoveGame(g.id)}
+                          className="absolute top-2 left-2 z-10 w-7 h-7 rounded-full bg-black/60 hover:bg-destructive text-white flex items-center justify-center transition-colors"
+                          aria-label="Oyunu gruptan kaldır"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm text-center py-8">Bu grupta henüz oyun yok.</p>
               )}
             </section>
 

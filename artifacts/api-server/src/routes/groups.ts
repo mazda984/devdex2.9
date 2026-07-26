@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, groupsTable, groupMembersTable, groupPostsTable, usersTable } from "@workspace/db";
+import { db, groupsTable, groupMembersTable, groupPostsTable, groupGamesTable, gamesTable, usersTable } from "@workspace/db";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { requireAuth, getSessionUser, getSessionId } from "../lib/auth";
 import { uniqueSlug } from "../lib/slugify";
@@ -327,6 +327,126 @@ router.delete("/groups/:id/posts/:postId", requireAuth, async (req, res): Promis
   if (!canDelete) { res.status(403).json({ error: "Forbidden" }); return; }
 
   await db.delete(groupPostsTable).where(eq(groupPostsTable.id, postId));
+  res.json({ success: true });
+});
+
+function formatGame(game: typeof gamesTable.$inferSelect, author: typeof usersTable.$inferSelect) {
+  return {
+    id: game.id,
+    title: game.title,
+    description: game.description,
+    gameUrl: game.gameUrl,
+    coverImageUrl: game.coverImageUrl,
+    slug: game.slug,
+    category: game.category,
+    featured: game.featured,
+    playCount: game.playCount,
+    authorId: game.authorId,
+    author: safeUser(author),
+    createdAt: game.createdAt.toISOString(),
+    updatedAt: game.updatedAt.toISOString(),
+  };
+}
+
+// DELETE /groups/:id — group owner or site admin
+router.delete("/groups/:id", requireAuth, async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const user = sessionId ? await getSessionUser(sessionId) : null;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
+  if (!group) { res.status(404).json({ error: "Group not found" }); return; }
+
+  if (group.authorId !== user.id && !user.isAdmin) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  await db.delete(groupPostsTable).where(eq(groupPostsTable.groupId, id));
+  await db.delete(groupGamesTable).where(eq(groupGamesTable.groupId, id));
+  await db.delete(groupMembersTable).where(eq(groupMembersTable.groupId, id));
+  await db.delete(groupsTable).where(eq(groupsTable.id, id));
+
+  res.json({ success: true });
+});
+
+// GET /groups/:id/games — games featured in this group
+router.get("/groups/:id/games", async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const results = await db
+    .select()
+    .from(groupGamesTable)
+    .innerJoin(gamesTable, eq(groupGamesTable.gameId, gamesTable.id))
+    .innerJoin(usersTable, eq(gamesTable.authorId, usersTable.id))
+    .where(eq(groupGamesTable.groupId, id))
+    .orderBy(desc(groupGamesTable.addedAt));
+
+  res.json(results.map((r) => formatGame(r.games, r.users)));
+});
+
+// POST /groups/:id/games — group owner adds one of THEIR OWN games to the group
+router.post("/groups/:id/games", requireAuth, async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const user = sessionId ? await getSessionUser(sessionId) : null;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const id = parseInt(req.params.id, 10);
+  const { gameId } = req.body;
+  if (isNaN(id) || typeof gameId !== "number") { res.status(400).json({ error: "Invalid request" }); return; }
+
+  const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
+  if (!group) { res.status(404).json({ error: "Group not found" }); return; }
+
+  if (group.authorId !== user.id) {
+    res.status(403).json({ error: "Sadece grup sahibi oyun ekleyebilir" });
+    return;
+  }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId));
+  if (!game) { res.status(404).json({ error: "Game not found" }); return; }
+
+  if (game.authorId !== user.id) {
+    res.status(403).json({ error: "Sadece kendi oyunlarını gruba ekleyebilirsin" });
+    return;
+  }
+
+  const [existing] = await db
+    .select()
+    .from(groupGamesTable)
+    .where(and(eq(groupGamesTable.groupId, id), eq(groupGamesTable.gameId, gameId)));
+  if (existing) {
+    res.status(409).json({ error: "Bu oyun zaten grupta" });
+    return;
+  }
+
+  await db.insert(groupGamesTable).values({ groupId: id, gameId, addedBy: user.id });
+  res.status(201).json(formatGame(game, user));
+});
+
+// DELETE /groups/:id/games/:gameId — group owner or site admin
+router.delete("/groups/:id/games/:gameId", requireAuth, async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const user = sessionId ? await getSessionUser(sessionId) : null;
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const id = parseInt(req.params.id, 10);
+  const gameId = parseInt(req.params.gameId, 10);
+  if (isNaN(id) || isNaN(gameId)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
+  if (!group) { res.status(404).json({ error: "Group not found" }); return; }
+
+  if (group.authorId !== user.id && !user.isAdmin) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  await db.delete(groupGamesTable).where(and(eq(groupGamesTable.groupId, id), eq(groupGamesTable.gameId, gameId)));
   res.json({ success: true });
 });
 

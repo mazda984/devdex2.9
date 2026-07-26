@@ -1,5 +1,6 @@
-import { pgTable, serial, text, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, boolean, timestamp, unique } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { gamesTable } from "./games";
 
 export const groupsTable = pgTable("groups", {
   id: serial("id").primaryKey(),
@@ -29,3 +30,15 @@ export const groupPostsTable = pgTable("group_posts", {
   content: text("content").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const groupGamesTable = pgTable(
+  "group_games",
+  {
+    id: serial("id").primaryKey(),
+    groupId: integer("group_id").notNull().references(() => groupsTable.id),
+    gameId: integer("game_id").notNull().references(() => gamesTable.id),
+    addedBy: integer("added_by").notNull().references(() => usersTable.id),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [unique().on(table.groupId, table.gameId)],
+);

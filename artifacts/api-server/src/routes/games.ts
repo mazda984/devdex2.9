@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, gamesTable, usersTable, gameCommentsTable } from "@workspace/db";
+import { db, gamesTable, usersTable, gameCommentsTable, groupGamesTable } from "@workspace/db";
 import { eq, ilike, or, desc, sql } from "drizzle-orm";
 import {
   CreateGameBody,
@@ -130,6 +130,42 @@ router.get("/games/stats", async (_req, res): Promise<void> => {
   });
 });
 
+// GET /games/discovery — Roblox-Discovery-style rows: actively played, most
+// popular, and recommended.
+router.get("/games/discovery", async (_req, res): Promise<void> => {
+  const LIMIT = 12;
+
+  const activelyPlayedRows = await db
+    .select()
+    .from(gamesTable)
+    .innerJoin(usersTable, eq(gamesTable.authorId, usersTable.id))
+    .where(sql`${gamesTable.lastPlayedAt} is not null`)
+    .orderBy(desc(gamesTable.lastPlayedAt))
+    .limit(LIMIT);
+
+  const popularRows = await db
+    .select()
+    .from(gamesTable)
+    .innerJoin(usersTable, eq(gamesTable.authorId, usersTable.id))
+    .orderBy(desc(gamesTable.playCount))
+    .limit(LIMIT);
+
+  // "Recommended": no personalization yet, so surface a randomized sample —
+  // still gives the "something new every visit" discovery feel.
+  const recommendedRows = await db
+    .select()
+    .from(gamesTable)
+    .innerJoin(usersTable, eq(gamesTable.authorId, usersTable.id))
+    .orderBy(sql`random()`)
+    .limit(LIMIT);
+
+  res.json({
+    activelyPlayed: activelyPlayedRows.map((r) => formatGame(r.games, r.users)),
+    popular: popularRows.map((r) => formatGame(r.games, r.users)),
+    recommended: recommendedRows.map((r) => formatGame(r.games, r.users)),
+  });
+});
+
 router.get("/games", async (req, res): Promise<void> => {
   const parsed = ListGamesQueryParams.safeParse(req.query);
   if (!parsed.success) {
@@ -237,7 +273,7 @@ router.get("/games/:id", async (req, res): Promise<void> => {
   // Increment play count
   await db
     .update(gamesTable)
-    .set({ playCount: result.games.playCount + 1 })
+    .set({ playCount: result.games.playCount + 1, lastPlayedAt: new Date() })
     .where(eq(gamesTable.id, result.games.id));
 
   // Reward the author with 1 DexBux per play — but not for the author
@@ -342,6 +378,8 @@ router.delete("/games/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  await db.delete(gameCommentsTable).where(eq(gameCommentsTable.gameId, params.data.id));
+  await db.delete(groupGamesTable).where(eq(groupGamesTable.gameId, params.data.id));
   await db.delete(gamesTable).where(eq(gamesTable.id, params.data.id));
 
   res.json({ success: true });

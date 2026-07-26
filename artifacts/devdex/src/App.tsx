@@ -17,6 +17,7 @@ import Profile from '@/pages/Profile';
 import Studio from '@/pages/Studio';
 import Studio2D from '@/pages/Studio2D';
 import Studio3D from '@/pages/Studio3D';
+import Play3D from '@/pages/Play3D';
 import Settings from '@/pages/Settings';
 import Groups from '@/pages/Groups';
 import GroupDetail from '@/pages/GroupDetail';
@@ -48,6 +49,7 @@ function Router() {
           <Route path="/studio" component={Studio} />
           <Route path="/studio/2d" component={Studio2D} />
           <Route path="/studio/3d" component={Studio3D} />
+          <Route path="/play/:slug" component={Play3D} />
           <Route path="/settings" component={Settings} />
           <Route path="/groups" component={Groups} />
           <Route path="/groups/:id" component={GroupDetail} />

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useListGames, useSearchGames, getListGamesQueryKey, getSearchGamesQueryKey } from "@workspace/api-client-react";
+import { useGameDiscovery } from "@/lib/extra-api";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
 import { Input } from "@/components/ui/input";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, Flame, TrendingUp, Sparkles } from "lucide-react";
 
 export default function Games() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,6 +40,8 @@ export default function Games() {
 
   const games = debouncedQuery.length > 0 ? searchData : listData?.games;
   const isLoading = (debouncedQuery.length > 0 && isLoadingSearch) || (debouncedQuery.length === 0 && isLoadingList);
+  const { data: discovery, isLoading: isLoadingDiscovery } = useGameDiscovery();
+  const showDiscovery = debouncedQuery.length === 0;
 
   return (
     <div className="container mx-auto px-4 py-12 flex-1 flex flex-col">
@@ -74,7 +77,33 @@ export default function Games() {
         </div>
       </div>
 
+      {showDiscovery && (
+        <div className="flex flex-col gap-10 mb-12">
+          <DiscoveryRow
+            title="Actively Played"
+            icon={<Flame className="w-5 h-5 text-orange-500" />}
+            games={discovery?.activelyPlayed}
+            isLoading={isLoadingDiscovery}
+          />
+          <DiscoveryRow
+            title="Most Popular"
+            icon={<TrendingUp className="w-5 h-5 text-primary" />}
+            games={discovery?.popular}
+            isLoading={isLoadingDiscovery}
+          />
+          <DiscoveryRow
+            title="Recommended For You"
+            icon={<Sparkles className="w-5 h-5 text-amber-500" />}
+            games={discovery?.recommended}
+            isLoading={isLoadingDiscovery}
+          />
+        </div>
+      )}
+
       <div className="flex-1">
+        {showDiscovery && (
+          <h2 className="text-2xl font-bold text-foreground mb-6">All Games</h2>
+        )}
         {isLoading ? (
           <div className="pt-20"><Loader /></div>
         ) : games && games.length > 0 ? (
@@ -96,5 +125,43 @@ export default function Games() {
         )}
       </div>
     </div>
+  );
+}
+
+function DiscoveryRow({
+  title,
+  icon,
+  games,
+  isLoading,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  games?: any[];
+  isLoading: boolean;
+}) {
+  if (!isLoading && (!games || games.length === 0)) return null;
+
+  return (
+    <section>
+      <h2 className="text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+        {icon}
+        {title}
+      </h2>
+      {isLoading ? (
+        <div className="flex gap-4 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="w-56 h-40 rounded-xl bg-card border border-border animate-pulse shrink-0" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-thin snap-x snap-mandatory">
+          {games!.map((game) => (
+            <div key={game.id} className="w-56 shrink-0 snap-start">
+              <GameCard game={game} />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

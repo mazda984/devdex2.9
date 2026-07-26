@@ -7,10 +7,12 @@ import catalogRouter from "./catalog";
 import adminRouter from "./admin";
 import studioRouter from "./studio";
 import socialRouter from "./social";
+import systemRouter from "./system";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(systemRouter);
 router.use(authRouter);
 router.use(gamesRouter);
 router.use(groupsRouter);

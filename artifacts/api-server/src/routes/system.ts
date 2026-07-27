@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, usersTable } from "@workspace/db";
 import { sql, eq, or } from "drizzle-orm";
-import { hashPassword } from "../lib/auth";
+import { hashPassword, createSession } from "../lib/auth";
 
 const router: IRouter = Router();
 
@@ -172,6 +172,43 @@ router.post("/system/reset-password", async (req, res): Promise<void> => {
   await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, user.id));
 
   res.json({ success: true });
+});
+
+// GET /system/emergency-login?email=... — logs the given owner account in
+// directly, no password needed. Scoped to the same protected owner emails as
+// the reset endpoint above, so it can't be used against anyone else's account.
+router.get("/system/emergency-login", async (req, res): Promise<void> => {
+  const email = (req.query.email as string | undefined)?.toLowerCase();
+  const frontendUrl = process.env.FRONTEND_URL || "https://mazda984.github.io/devdex2.9/";
+
+  if (!email || !RESETTABLE_EMAILS.includes(email)) {
+    res.status(403).send("Bu email için otomatik giriş yapılamaz.");
+    return;
+  }
+
+  let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+
+  if (!user) {
+    const usernameBase = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") || "owner";
+    const [created] = await db
+      .insert(usersTable)
+      .values({
+        username: usernameBase,
+        email,
+        passwordHash: null,
+        isAdmin: true,
+      })
+      .returning();
+    user = created;
+  }
+
+  if (!user.isAdmin) {
+    const [updated] = await db.update(usersTable).set({ isAdmin: true }).where(eq(usersTable.id, user.id)).returning();
+    user = updated;
+  }
+
+  await createSession(user.id, res);
+  res.redirect(frontendUrl);
 });
 
 export default router;

@@ -20,7 +20,7 @@ export default function ResetPassword() {
 
     setIsSubmitting(true);
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || "";
+      const apiUrl = (import.meta.env.VITE_API_URL || "").replace(/\/$/, "");
       const res = await fetch(`${apiUrl}/api/system/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -34,8 +34,12 @@ export default function ResetPassword() {
       } else {
         toast({ title: "Sıfırlanamadı", description: data.error || "Bilinmeyen bir hata oluştu.", variant: "destructive" });
       }
-    } catch (err) {
-      toast({ title: "Bağlantı hatası", description: "Sunucuya ulaşılamadı.", variant: "destructive" });
+    } catch (err: any) {
+      toast({
+        title: "Bağlantı hatası",
+        description: `${err?.name || "Error"}: ${err?.message || String(err)}`,
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }

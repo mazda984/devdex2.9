@@ -6,7 +6,8 @@ export const usersTable = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
+  passwordHash: text("password_hash"),
+  googleId: text("google_id"),
   avatarUrl: text("avatar_url"),
   // DexBux: the site's virtual currency.
   dexbux: integer("dexbux").notNull().default(0),

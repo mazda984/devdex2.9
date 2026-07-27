@@ -18,6 +18,8 @@ router.get("/system/migrate", async (_req, res): Promise<void> => {
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false`);
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_item_id integer`);
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_until timestamptz`);
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id text`);
+    await db.execute(sql`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
     ran.push("users columns");
 
     await db.execute(sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS last_played_at timestamptz`);

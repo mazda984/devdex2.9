@@ -24,6 +24,11 @@ import Groups from '@/pages/Groups';
 import GroupDetail from '@/pages/GroupDetail';
 import Catalog from '@/pages/Catalog';
 import Admin from '@/pages/Admin';
+import ResetPassword from '@/pages/ResetPassword';
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { getGetMeQueryKey } from '@workspace/api-client-react';
+import { useToast } from '@/hooks/use-toast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,10 +39,37 @@ const queryClient = new QueryClient({
   },
 });
 
+function GoogleAuthRedirectHandler() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("googleAuth");
+    if (!status) return;
+
+    if (status === "success") {
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      toast({ title: "Google ile giriş yapıldı" });
+    } else if (status === "banned") {
+      toast({ title: "Hesabın askıya alınmış", variant: "destructive" });
+    } else {
+      toast({ title: "Google ile giriş başarısız oldu", variant: "destructive" });
+    }
+
+    params.delete("googleAuth");
+    const newSearch = params.toString();
+    window.history.replaceState({}, "", window.location.pathname + (newSearch ? `?${newSearch}` : ""));
+  }, []);
+
+  return null;
+}
+
 function Router() {
   return (
     <div className="flex flex-col min-h-[100dvh] bg-background text-foreground selection:bg-primary selection:text-primary-foreground">
       <Navbar />
+      <GoogleAuthRedirectHandler />
       <main className="flex-1 flex flex-col">
         <Switch>
           <Route path="/" component={Home} />
@@ -58,6 +90,7 @@ function Router() {
           <Route path="/groups/:id" component={GroupDetail} />
           <Route path="/catalog" component={Catalog} />
           <Route path="/admin" component={Admin} />
+          <Route path="/reset-password" component={ResetPassword} />
           <Route component={NotFound} />
         </Switch>
       </main>

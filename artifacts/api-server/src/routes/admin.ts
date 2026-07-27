@@ -221,6 +221,8 @@ router.get("/admin/migrate", requireAdmin, async (_req, res): Promise<void> => {
     ran.push("studio_scenes table (current shape)");
 
     await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_until timestamptz`);
+    await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id text`);
+    await db.execute(sql`ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`);
     ran.push("users.banned_until");
 
     await db.execute(sql`

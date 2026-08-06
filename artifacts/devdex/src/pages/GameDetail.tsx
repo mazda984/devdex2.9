@@ -23,10 +23,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Play, Calendar, User as UserIcon, Tag, ExternalLink, X, Share2, Gamepad2, Trash2, Maximize, Minimize, MessageSquare, Send } from "lucide-react";
+import { Play, Calendar, User as UserIcon, Tag, ExternalLink, X, Share2, Gamepad2, Trash2, Maximize, Minimize, MessageSquare, Send, Flag } from "lucide-react";
 import { createPortal } from "react-dom";
 import { format, formatDistanceToNow } from "date-fns";
-import { useGameComments, useCreateGameComment, useDeleteGameComment } from "@/lib/extra-api";
+import { useGameComments, useCreateGameComment, useDeleteGameComment, useReportGame } from "@/lib/extra-api";
 import { Textarea } from "@/components/ui/textarea";
 
 function GameOverlay({ title, gameUrl, onClose }: { title: string; gameUrl: string; onClose: () => void }) {
@@ -129,6 +129,8 @@ export default function GameDetail() {
   });
 
   const isOwner = !!currentUser && !!game && currentUser.id === game.authorId;
+  const reportGame = useReportGame();
+  const [reportReason, setReportReason] = useState("");
 
   if (isLoading) {
     return <div className="flex-1 flex items-center justify-center min-h-[60vh]"><Loader /></div>;
@@ -270,6 +272,49 @@ export default function GameDetail() {
                     <ExternalLink className="w-4 h-4 mr-2" /> External
                   </Button>
                 </a>
+                {!isOwner && currentUser && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="w-full col-span-2 bg-background text-muted-foreground hover:text-foreground">
+                        <Flag className="w-4 h-4 mr-2" /> Rapor Et
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Bu oyunu rapor et</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Uygunsuz içerik (18+/cinsel içerik dahil) gördüysen bildir, admin ekibi inceleyecek.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <Textarea
+                        value={reportReason}
+                        onChange={(e) => setReportReason(e.target.value)}
+                        placeholder="Sebep belirt (ör. cinsel içerik, uygunsuz görsel...)"
+                        rows={3}
+                      />
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+                        <AlertDialogAction
+                          disabled={reportGame.isPending || !reportReason.trim()}
+                          onClick={() => {
+                            reportGame.mutate(
+                              { gameId: game.id, reason: reportReason.trim() },
+                              {
+                                onSuccess: () => {
+                                  toast({ title: "Rapor gönderildi, teşekkürler" });
+                                  setReportReason("");
+                                },
+                                onError: () => toast({ title: "Rapor gönderilemedi", variant: "destructive" }),
+                              },
+                            );
+                          }}
+                        >
+                          {reportGame.isPending ? "Gönderiliyor..." : "Gönder"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
                 {isOwner && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>

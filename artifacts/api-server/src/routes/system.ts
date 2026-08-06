@@ -135,6 +135,17 @@ router.get("/system/migrate", async (_req, res): Promise<void> => {
     `);
     ran.push("game_plays table");
 
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS game_reports (
+        id serial PRIMARY KEY,
+        game_id integer NOT NULL REFERENCES games(id),
+        reporter_id integer NOT NULL REFERENCES users(id),
+        reason text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    ran.push("game_reports table");
+
     res.json({ success: true, ran });
   } catch (err: any) {
     res.status(500).json({ success: false, ran, error: err?.message ?? String(err) });

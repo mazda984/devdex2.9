@@ -132,6 +132,59 @@ export function useGameDiscovery() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Badges
+// ---------------------------------------------------------------------------
+
+export interface Badge {
+  badgeId: string;
+  label: string;
+  threshold: number;
+  gameId: number;
+  gameTitle: string;
+  gameCoverImageUrl: string | null;
+  gameSlug: string;
+  playCount: number;
+}
+
+export function useUserBadges(userId: number) {
+  return useQuery({
+    queryKey: ["badges", userId] as const,
+    queryFn: () => customFetch<Badge[]>(`/api/users/${userId}/badges`),
+    enabled: !!userId,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Reports / content safety
+// ---------------------------------------------------------------------------
+
+export function useReportGame() {
+  return useMutation({
+    mutationFn: ({ gameId, reason }: { gameId: number; reason: string }) =>
+      customFetch<{ success: boolean }>(`/api/games/${gameId}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      }),
+  });
+}
+
+export function useAdminReports() {
+  return useQuery({
+    queryKey: ["admin-reports"] as const,
+    queryFn: () => customFetch<any[]>("/api/admin/reports"),
+  });
+}
+
+export function useDismissReport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => customFetch<{ success: boolean }>(`/api/admin/reports/${id}`, { method: "DELETE" }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-reports"] }),
+  });
+}
+
 export function useUserProfile(userId: number) {
   return useQuery({
     queryKey: ["users", userId] as const,

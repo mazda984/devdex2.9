@@ -33,3 +33,11 @@ export const gamePlaysTable = pgTable(
   },
   (table) => [unique().on(table.userId, table.gameId)],
 );
+
+export const gameReportsTable = pgTable("game_reports", {
+  id: serial("id").primaryKey(),
+  gameId: integer("game_id").notNull().references(() => gamesTable.id),
+  reporterId: integer("reporter_id").notNull().references(() => usersTable.id),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});

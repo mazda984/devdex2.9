@@ -19,7 +19,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, Wrench, Image as ImageIcon, Link as LinkIcon, Tag } from "lucide-react";
+import { Loader2, Wrench, Image as ImageIcon, Link as LinkIcon, Tag, ShieldCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required").max(100, "Title is too long"),
@@ -27,6 +28,9 @@ const formSchema = z.object({
   gameUrl: z.string().url("Must be a valid URL"),
   coverImageUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   category: z.string().optional(),
+  safeContent: z.boolean().refine((v) => v === true, {
+    message: "Oyununun 18+/cinsel içerik barındırmadığını onaylamalısın",
+  }),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -57,13 +61,15 @@ export default function SubmitGame() {
       gameUrl: "",
       coverImageUrl: "",
       category: "Action",
+      safeContent: false,
     },
   });
 
   const onSubmit = (values: FormValues) => {
     // Convert empty strings to undefined to match API schema
     const submitData = {
-      ...values,
+      title: values.title,
+      gameUrl: values.gameUrl,
       description: values.description || undefined,
       coverImageUrl: values.coverImageUrl || undefined,
       category: values.category || undefined,
@@ -191,6 +197,28 @@ export default function SubmitGame() {
                       {...field} 
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="safeContent"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start gap-3 rounded-xl border border-border p-4 bg-secondary/40">
+                  <FormControl>
+                    <Checkbox checked={field.value} onCheckedChange={field.onChange} className="mt-0.5" />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="font-semibold text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4" />
+                      Bu oyun 18+/cinsel içerik barındırmıyor
+                    </FormLabel>
+                    <FormDescription>
+                      DevDex'te cinsel/yetişkin içerikli oyunlara izin verilmiyor. Kural ihlali tespit edilirse oyun ve hesap askıya alınabilir.
+                    </FormDescription>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}

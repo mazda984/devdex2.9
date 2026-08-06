@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable, gamesTable, gameCommentsTable, groupsTable, groupMembersTable, groupPostsTable, groupGamesTable } from "@workspace/db";
+import { db, usersTable, gamesTable, gameCommentsTable, groupsTable, groupMembersTable, groupPostsTable, groupGamesTable, gameReportsTable } from "@workspace/db";
 import { eq, desc, sql } from "drizzle-orm";
 import { requireAdmin, isProtectedAdminEmail } from "../lib/auth";
 
@@ -260,10 +260,54 @@ router.get("/admin/migrate", requireAdmin, async (_req, res): Promise<void> => {
     `);
     ran.push("game_plays table");
 
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS game_reports (
+        id serial PRIMARY KEY,
+        game_id integer NOT NULL REFERENCES games(id),
+        reporter_id integer NOT NULL REFERENCES users(id),
+        reason text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )
+    `);
+    ran.push("game_reports table");
+
     res.json({ success: true, ran });
   } catch (err: any) {
     res.status(500).json({ success: false, ran, error: err?.message ?? String(err) });
   }
+});
+
+// GET /admin/reports — all reported games, most recent first
+router.get("/admin/reports", requireAdmin, async (_req, res): Promise<void> => {
+  const results = await db
+    .select()
+    .from(gameReportsTable)
+    .innerJoin(gamesTable, eq(gameReportsTable.gameId, gamesTable.id))
+    .innerJoin(usersTable, eq(gameReportsTable.reporterId, usersTable.id))
+    .orderBy(desc(gameReportsTable.createdAt));
+
+  res.json(
+    results.map((r) => ({
+      id: r.game_reports.id,
+      reason: r.game_reports.reason,
+      createdAt: r.game_reports.createdAt.toISOString(),
+      reporter: { id: r.users.id, username: r.users.username },
+      game: {
+        id: r.games.id,
+        title: r.games.title,
+        coverImageUrl: r.games.coverImageUrl,
+        slug: r.games.slug,
+      },
+    })),
+  );
+});
+
+// DELETE /admin/reports/:id — dismiss a report without deleting the game
+router.delete("/admin/reports/:id", requireAdmin, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+  await db.delete(gameReportsTable).where(eq(gameReportsTable.id, id));
+  res.json({ success: true });
 });
 
 export default router;

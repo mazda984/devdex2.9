@@ -9,7 +9,7 @@ import {
   type Game,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
-import { useUserProfile, usePlayHistory, useFriendStatus, useSendFriendRequest, useAcceptFriendRequest, useDeclineFriendRequest, useRemoveFriend } from "@/lib/extra-api";
+import { useUserProfile, usePlayHistory, useFriendStatus, useSendFriendRequest, useAcceptFriendRequest, useDeclineFriendRequest, useRemoveFriend, useUserBadges } from "@/lib/extra-api";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserCircle, Calendar, PlusSquare, Gamepad2, UserPlus, MessageCircle } from "lucide-react";
+import { UserCircle, Calendar, PlusSquare, Gamepad2, UserPlus, MessageCircle, Award } from "lucide-react";
 import { format } from "date-fns";
 
 export default function Profile() {
@@ -67,6 +67,7 @@ export default function Profile() {
   const isOwnProfile = currentUser?.id === userId;
 
   const { data: playHistory } = usePlayHistory(userId);
+  const { data: badges } = useUserBadges(userId);
   const { data: friendStatus } = useFriendStatus(userId);
   const sendFriendRequest = useSendFriendRequest();
   const acceptFriendRequest = useAcceptFriendRequest();
@@ -178,6 +179,33 @@ export default function Profile() {
           </div>
         ) : null}
       </div>
+
+      {badges && badges.length > 0 && (
+        <div className="space-y-6 mb-12">
+          <h2 className="text-2xl font-bold text-foreground">Badges</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {badges.map((badge) => (
+              <div key={`${badge.badgeId}-${badge.gameId}`} className="relative rounded-xl overflow-hidden border border-border shadow-sm group aspect-square">
+                {badge.gameCoverImageUrl ? (
+                  <img src={badge.gameCoverImageUrl} alt={badge.gameTitle} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-secondary flex items-center justify-center">
+                    <Gamepad2 className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                <div className="absolute bottom-0 left-0 right-0 p-2.5">
+                  <p className="text-white text-xs font-bold leading-tight">{badge.label}</p>
+                  <p className="text-white/70 text-[10px] truncate">{badge.gameTitle}</p>
+                </div>
+                <div className="absolute top-2 right-2 bg-amber-500 text-white rounded-full p-1 shadow-sm">
+                  <Award className="w-3.5 h-3.5" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {playHistory && playHistory.length > 0 && (
         <div className="space-y-6 mb-12">

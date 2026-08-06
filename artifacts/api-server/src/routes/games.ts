@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, gamesTable, usersTable, gameCommentsTable, groupGamesTable, gamePlaysTable } from "@workspace/db";
+import { db, gamesTable, usersTable, gameCommentsTable, groupGamesTable, gamePlaysTable, gameReportsTable } from "@workspace/db";
 import { eq, ilike, or, desc, sql } from "drizzle-orm";
 import {
   CreateGameBody,
@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-zod";
 import { getSessionId, getSessionUser } from "../lib/auth";
 import { uniqueSlug } from "../lib/slugify";
+import { containsAdultContent } from "../lib/content-filter";
 
 const router: IRouter = Router();
 
@@ -233,6 +234,14 @@ router.post("/games", async (req, res): Promise<void> => {
   }
 
   const { title, gameUrl, coverImageUrl, description, category } = parsed.data;
+
+  if (containsAdultContent(title, description, category)) {
+    res.status(400).json({
+      error: "Oyun başlığı/açıklaması izin verilmeyen içerik (18+/cinsel içerik) barındırıyor. DevDex'te bu tür içeriklere izin verilmiyor.",
+    });
+    return;
+  }
+
   const slug = await uniqueSlug(title);
 
   const [game] = await db
@@ -346,6 +355,13 @@ router.patch("/games/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  if (containsAdultContent(parsed.data.title, parsed.data.description, parsed.data.category)) {
+    res.status(400).json({
+      error: "Oyun başlığı/açıklaması izin verilmeyen içerik (18+/cinsel içerik) barındırıyor. DevDex'te bu tür içeriklere izin verilmiyor.",
+    });
+    return;
+  }
+
   const [updated] = await db
     .update(gamesTable)
     .set(parsed.data)
@@ -432,7 +448,42 @@ router.get("/users/:id/play-history", async (req, res): Promise<void> => {
   res.json(results.map((r) => formatGame(r.games, r.users)));
 });
 
-// GET /games/:id/comments
+// Badge tiers, in ascending order — a game can only earn its highest
+// qualifying tier (not one badge per tier) to avoid cluttering profiles.
+const BADGE_TIERS = [
+  { threshold: 1000, id: "successful_developer", label: "Başarılı Geliştirici" },
+  { threshold: 10000, id: "rising_star", label: "Yükselen Yıldız" },
+  { threshold: 100000, id: "legendary_developer", label: "Efsanevi Geliştirici" },
+] as const;
+
+// GET /users/:id/badges — badges earned from this user's games' play counts.
+// Computed live from playCount, not stored, so it's always accurate.
+router.get("/users/:id/badges", async (req, res): Promise<void> => {
+  const userId = parseInt(req.params.id, 10);
+  if (isNaN(userId)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const games = await db.select().from(gamesTable).where(eq(gamesTable.authorId, userId));
+
+  const badges = games
+    .map((game) => {
+      const tier = [...BADGE_TIERS].reverse().find((t) => game.playCount >= t.threshold);
+      if (!tier) return null;
+      return {
+        badgeId: tier.id,
+        label: tier.label,
+        threshold: tier.threshold,
+        gameId: game.id,
+        gameTitle: game.title,
+        gameCoverImageUrl: game.coverImageUrl,
+        gameSlug: game.slug,
+        playCount: game.playCount,
+      };
+    })
+    .filter((b): b is NonNullable<typeof b> => b !== null)
+    .sort((a, b) => b.playCount - a.playCount);
+
+  res.json(badges);
+});
 router.get("/games/:id/comments", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
@@ -509,6 +560,28 @@ router.delete("/games/:id/comments/:commentId", async (req, res): Promise<void> 
 
   await db.delete(gameCommentsTable).where(eq(gameCommentsTable.id, commentId));
   res.json({ success: true });
+});
+
+// POST /games/:id/report — flag a game for admin review (e.g. inappropriate content)
+router.post("/games/:id/report", async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const user = sessionId ? await getSessionUser(sessionId) : null;
+  if (!user) { res.status(401).json({ error: "Not authenticated" }); return; }
+
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
+
+  const { reason } = req.body as { reason?: string };
+  if (!reason || reason.trim().length === 0) {
+    res.status(400).json({ error: "Bir sebep belirtmelisin" });
+    return;
+  }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, id));
+  if (!game) { res.status(404).json({ error: "Game not found" }); return; }
+
+  await db.insert(gameReportsTable).values({ gameId: id, reporterId: user.id, reason: reason.trim() });
+  res.status(201).json({ success: true });
 });
 
 export default router;

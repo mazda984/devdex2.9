@@ -9,6 +9,9 @@ export default function Studio3D() {
     // Only pass the item image if it actually came from an equipped catalog
     // item (avatarItemId set), not just any avatar picture.
     params.set("devdexItemImage", encodeURIComponent(user.avatarUrl));
+    // Tells the 3D client whether to wear this as a hat (floating above the
+    // head) or a shirt (textured on the torso).
+    params.set("devdexItemType", user.avatarItemType || "hat");
   }
   if (user?.username) {
     params.set("devdexUsername", encodeURIComponent(user.username));

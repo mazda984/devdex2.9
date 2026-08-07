@@ -27,6 +27,8 @@ export interface User {
   isAdmin: boolean;
   /** @nullable */
   avatarItemId: number | null;
+  /** "hat" | "shirt" — which slot the equipped avatarItemId is worn in */
+  avatarItemType: string;
   createdAt: string;
 }
 

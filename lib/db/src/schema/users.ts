@@ -16,6 +16,10 @@ export const usersTable = pgTable("users", {
   // References catalogItemsTable.id, but left as a plain column (no FK) to
   // avoid a circular import between users.ts and catalog.ts.
   avatarItemId: integer("avatar_item_id"),
+  // Mirrors the equipped catalog item's itemType ("hat" | "shirt") so the
+  // client knows how to render it without an extra lookup. Defaults to
+  // "hat" to match old rows / items created before this column existed.
+  avatarItemType: text("avatar_item_type").notNull().default("hat"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

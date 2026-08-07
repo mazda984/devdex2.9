@@ -5,11 +5,14 @@ import { customFetch, getGetMeQueryKey, type User } from "@workspace/api-client-
 // Types
 // ---------------------------------------------------------------------------
 
+export type CatalogItemType = "hat" | "shirt";
+
 export interface CatalogItem {
   id: number;
   name: string;
   imageUrl: string;
   price: number;
+  itemType: CatalogItemType;
   creatorId: number;
   creator: User;
   createdAt: string;
@@ -80,7 +83,7 @@ export function useMyCatalogItems() {
 export function useCreateCatalogItem() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; imageUrl: string; price: number }) =>
+    mutationFn: (body: { name: string; imageUrl: string; price: number; itemType: CatalogItemType }) =>
       customFetch<CatalogItem>("/api/catalog", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -8,6 +8,9 @@ export const catalogItemsTable = pgTable("catalog_items", {
   name: text("name").notNull(),
   imageUrl: text("image_url").notNull(),
   price: integer("price").notNull(), // DexBux cost to buy this item from its creator
+  // What slot this item is worn in on the 3D avatar: "hat" (floats above the
+  // head) or "shirt" (textures the torso). Defaults to "hat" for old rows.
+  itemType: text("item_type").notNull().default("hat"),
   creatorId: integer("creator_id").notNull().references(() => usersTable.id),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

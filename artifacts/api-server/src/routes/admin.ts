@@ -14,6 +14,7 @@ function safeUser(user: typeof usersTable.$inferSelect) {
     dexbux: user.dexbux,
     isAdmin: user.isAdmin,
     avatarItemId: user.avatarItemId,
+    avatarItemType: user.avatarItemType,
     bannedUntil: user.bannedUntil ? user.bannedUntil.toISOString() : null,
     createdAt: user.createdAt.toISOString(),
   };

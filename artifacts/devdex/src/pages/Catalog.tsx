@@ -7,6 +7,7 @@ import {
   useBuyCatalogItem,
   useEquipCatalogItem,
   type CatalogItem,
+  type CatalogItemType,
 } from "@/lib/extra-api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Coins, ShoppingBag, PlusSquare, Check } from "lucide-react";
+import { Coins, ShoppingBag, PlusSquare, Check, Shirt, Crown } from "lucide-react";
 
 const CREATE_COST = 5;
 
@@ -37,6 +38,7 @@ export default function Catalog() {
   const [name, setName] = useState("");
   const [imageUrl, setImageUrl] = useState("");
   const [price, setPrice] = useState("2");
+  const [itemType, setItemType] = useState<CatalogItemType>("hat");
 
   const ownedIds = new Set((myItems ?? []).map((i) => i.id));
 
@@ -47,7 +49,7 @@ export default function Catalog() {
       return;
     }
     createItem.mutate(
-      { name: name.trim(), imageUrl: imageUrl.trim(), price: priceNum },
+      { name: name.trim(), imageUrl: imageUrl.trim(), price: priceNum, itemType },
       {
         onSuccess: () => {
           toast({ title: "Katalog öğesi oluşturuldu" });
@@ -55,6 +57,7 @@ export default function Catalog() {
           setName("");
           setImageUrl("");
           setPrice("2");
+          setItemType("hat");
         },
         onError: (err: any) => {
           toast({
@@ -131,6 +134,36 @@ export default function Catalog() {
                   <label className="text-sm font-medium text-foreground">Satış fiyatı (DexBux)</label>
                   <Input type="number" min={0} value={price} onChange={(e) => setPrice(e.target.value)} />
                 </div>
+                <div>
+                  <label className="text-sm font-medium text-foreground">Öğe türü</label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Bu öğe avatarda nasıl görünecek: şapka olarak kafanın üstünde mi, yoksa tişört olarak vücuda mı giyilecek?
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setItemType("hat")}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                        itemType === "hat"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      <Crown className="w-4 h-4" /> Şapka
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItemType("shirt")}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                        itemType === "shirt"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border text-muted-foreground hover:bg-secondary"
+                      }`}
+                    >
+                      <Shirt className="w-4 h-4" /> Tişört
+                    </button>
+                  </div>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   Oluşturma ücreti: {CREATE_COST} DexBux (bakiyen: {user.dexbux.toLocaleString()}).
                   Başkaları bu öğeyi belirlediğin fiyattan satın alabilir, ücret sana geçer.
@@ -155,8 +188,12 @@ export default function Catalog() {
             const isEquipped = user?.avatarItemId === item.id;
             return (
               <div key={item.id} className="bg-card border border-border rounded-xl overflow-hidden flex flex-col shadow-sm">
-                <div className="aspect-square bg-secondary overflow-hidden">
+                <div className="aspect-square bg-secondary overflow-hidden relative">
                   <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
+                  <span className="absolute top-1.5 right-1.5 bg-background/90 text-foreground rounded-full px-2 py-0.5 text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                    {item.itemType === "shirt" ? <Shirt className="w-3 h-3" /> : <Crown className="w-3 h-3" />}
+                    {item.itemType === "shirt" ? "Tişört" : "Şapka"}
+                  </span>
                 </div>
                 <div className="p-3 flex-1 flex flex-col gap-2">
                   <h3 className="font-bold text-sm line-clamp-1 text-foreground">{item.name}</h3>

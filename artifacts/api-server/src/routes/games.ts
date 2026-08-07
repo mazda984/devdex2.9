@@ -25,6 +25,7 @@ function safeUser(user: {
   dexbux: number;
   isAdmin: boolean;
   avatarItemId: number | null;
+  avatarItemType: string;
   createdAt: Date;
 }) {
   return {
@@ -35,6 +36,7 @@ function safeUser(user: {
     dexbux: user.dexbux,
     isAdmin: user.isAdmin,
     avatarItemId: user.avatarItemId,
+    avatarItemType: user.avatarItemType,
     createdAt: user.createdAt.toISOString(),
   };
 }

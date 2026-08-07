@@ -17,6 +17,7 @@ function safeUser(user: typeof usersTable.$inferSelect) {
     dexbux: user.dexbux,
     isAdmin: user.isAdmin,
     avatarItemId: user.avatarItemId,
+    avatarItemType: user.avatarItemType,
     createdAt: user.createdAt.toISOString(),
   };
 }
@@ -27,6 +28,7 @@ function formatItem(item: typeof catalogItemsTable.$inferSelect, creator: typeof
     name: item.name,
     imageUrl: item.imageUrl,
     price: item.price,
+    itemType: item.itemType,
     creatorId: item.creatorId,
     creator: safeUser(creator),
     createdAt: item.createdAt.toISOString(),
@@ -67,7 +69,7 @@ router.post("/catalog", requireAuth, async (req, res): Promise<void> => {
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { name, imageUrl, price } = req.body;
+  const { name, imageUrl, price, itemType } = req.body;
   if (!name || typeof name !== "string" || name.trim().length === 0) {
     res.status(400).json({ error: "Name is required" });
     return;
@@ -81,6 +83,7 @@ router.post("/catalog", requireAuth, async (req, res): Promise<void> => {
     res.status(400).json({ error: "price must be a non-negative integer" });
     return;
   }
+  const normalizedItemType = itemType === "shirt" ? "shirt" : "hat";
 
   if (user.dexbux < CATALOG_ITEM_CREATION_COST) {
     res.status(402).json({
@@ -91,7 +94,7 @@ router.post("/catalog", requireAuth, async (req, res): Promise<void> => {
 
   const [item] = await db
     .insert(catalogItemsTable)
-    .values({ name: name.trim(), imageUrl, price: resalePrice, creatorId: user.id })
+    .values({ name: name.trim(), imageUrl, price: resalePrice, itemType: normalizedItemType, creatorId: user.id })
     .returning();
 
   const [chargedUser] = await db
@@ -180,7 +183,7 @@ router.post("/catalog/:id/equip", requireAuth, async (req, res): Promise<void> =
 
   const [updatedUser] = await db
     .update(usersTable)
-    .set({ avatarItemId: item.id, avatarUrl: item.imageUrl })
+    .set({ avatarItemId: item.id, avatarUrl: item.imageUrl, avatarItemType: item.itemType })
     .where(eq(usersTable.id, user.id))
     .returning();
 

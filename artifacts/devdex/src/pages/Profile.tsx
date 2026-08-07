@@ -10,6 +10,7 @@ import {
 } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { useUserProfile, usePlayHistory, useFriendStatus, useSendFriendRequest, useAcceptFriendRequest, useDeclineFriendRequest, useRemoveFriend, useUserBadges } from "@/lib/extra-api";
+import CharacterViewer from "@/components/ui/CharacterViewer";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
@@ -107,6 +108,15 @@ export default function Profile() {
             </div>
           )}
         </div>
+
+        {user?.avatarItemId && (
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <div className="w-32 h-32 md:w-40 md:h-40 rounded-2xl bg-secondary/50 border border-border overflow-hidden shadow-sm">
+              <CharacterViewer equippedImageUrl={user.avatarUrl} className="w-full h-full" />
+            </div>
+            <span className="text-[11px] text-muted-foreground font-medium">3D Önizleme</span>
+          </div>
+        )}
         
         <div className="flex-1 text-center md:text-left">
           <h1 className="text-4xl md:text-5xl font-extrabold mb-3 tracking-tight text-foreground">

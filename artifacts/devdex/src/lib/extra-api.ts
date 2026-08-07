@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { customFetch, type User } from "@workspace/api-client-react";
+import { customFetch, getGetMeQueryKey, type User } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -113,8 +113,10 @@ export function useEquipCatalogItem() {
       customFetch<{ user: User }>(`/api/catalog/${itemId}/equip`, {
         method: "POST",
       }),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: catalogKeys.mine() });
+      queryClient.setQueryData(getGetMeQueryKey(), data.user);
+      queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
     },
   });
 }

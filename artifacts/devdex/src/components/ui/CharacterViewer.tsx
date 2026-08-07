@@ -6,10 +6,9 @@ interface CharacterViewerProps {
   className?: string;
 }
 
-// A small, self-contained 3D avatar preview: a simple humanoid figure with
-// the user's currently-equipped catalog item shown as a "hat" above its
-// head. This is independent of the external 3D Studio tool — it's just a
-// lightweight way to visualize what a catalog item looks like on you.
+// A small, self-contained 3D avatar preview styled to match DevDex Studio's
+// blocky character (box torso/limbs, simple head) — the user's currently
+// equipped catalog item is shown as a floating billboard above the head.
 export default function CharacterViewer({ equippedImageUrl, className }: CharacterViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -24,59 +23,82 @@ export default function CharacterViewer({ equippedImageUrl, className }: Charact
     scene.background = null;
 
     const camera = new THREE.PerspectiveCamera(35, w / h, 0.1, 100);
-    camera.position.set(0, 1.1, 4.2);
-    camera.lookAt(0, 0.9, 0);
+    camera.position.set(0, 1.05, 4.4);
+    camera.lookAt(0, 0.85, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const key = new THREE.DirectionalLight(0xffffff, 0.9);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.95));
+    const key = new THREE.DirectionalLight(0xffffff, 0.85);
     key.position.set(2, 3, 3);
     scene.add(key);
 
     const character = new THREE.Group();
 
-    // Torso
+    const torsoColor = 0xa3a3a3;
+    const limbColor = 0xa3a3a3;
+    const legColor = 0x22c55e;
+    const headColor = 0xe4e4e4;
+
+    // Torso — blocky box, like DevDex Studio's character
     const torso = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.35, 0.6, 4, 12),
-      new THREE.MeshStandardMaterial({ color: 0x3b82f6 }),
+      new THREE.BoxGeometry(0.55, 0.62, 0.3),
+      new THREE.MeshStandardMaterial({ color: torsoColor }),
     );
-    torso.position.y = 0.75;
+    torso.position.y = 0.68;
     character.add(torso);
 
-    // Head
+    // Head — rounded box
     const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.28, 24, 24),
-      new THREE.MeshStandardMaterial({ color: 0xf5c396 }),
+      new THREE.BoxGeometry(0.42, 0.4, 0.42),
+      new THREE.MeshStandardMaterial({ color: headColor }),
     );
-    head.position.y = 1.45;
+    head.position.y = 1.25;
     character.add(head);
 
-    // Legs
+    // Simple face (two dots) drawn via small dark spheres
     for (const side of [-1, 1]) {
-      const leg = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.14, 0.55, 4, 8),
+      const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.03, 8, 8),
         new THREE.MeshStandardMaterial({ color: 0x1f2937 }),
       );
-      leg.position.set(side * 0.16, 0.15, 0);
+      eye.position.set(side * 0.09, 1.27, 0.22);
+      character.add(eye);
+    }
+
+    // Legs — blocky boxes
+    for (const side of [-1, 1]) {
+      const leg = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 0.55, 0.28),
+        new THREE.MeshStandardMaterial({ color: legColor }),
+      );
+      leg.position.set(side * 0.14, 0.1, 0);
       character.add(leg);
     }
 
-    // Arms
+    // Arms — blocky boxes
     for (const side of [-1, 1]) {
       const arm = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.1, 0.5, 4, 8),
-        new THREE.MeshStandardMaterial({ color: 0x3b82f6 }),
+        new THREE.BoxGeometry(0.2, 0.58, 0.24),
+        new THREE.MeshStandardMaterial({ color: limbColor }),
       );
-      arm.position.set(side * 0.48, 0.78, 0);
-      arm.rotation.z = side * 0.15;
+      arm.position.set(side * 0.38, 0.68, 0);
+      arm.rotation.z = side * 0.08;
       character.add(arm);
     }
 
     scene.add(character);
+
+    // Ground disc under the character's feet, echoing DevDex Studio's spawn platform
+    const disc = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.55, 0.55, 0.04, 24),
+      new THREE.MeshStandardMaterial({ color: 0x2a2a2a }),
+    );
+    disc.position.y = -0.18;
+    character.add(disc);
 
     // Equipped item shown as a floating "hat" plane above the head.
     let itemMesh: THREE.Mesh | null = null;
@@ -87,7 +109,7 @@ export default function CharacterViewer({ equippedImageUrl, className }: Charact
         const geo = new THREE.PlaneGeometry(0.42, 0.42);
         const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide });
         itemMesh = new THREE.Mesh(geo, mat);
-        itemMesh.position.set(0, 1.88, 0);
+        itemMesh.position.set(0, 1.62, 0);
         scene.add(itemMesh);
       });
     }
@@ -100,7 +122,7 @@ export default function CharacterViewer({ equippedImageUrl, className }: Charact
       character.rotation.y = Math.sin(angle) * 0.35;
       if (itemMesh) {
         itemMesh.rotation.y = character.rotation.y;
-        itemMesh.position.y = 1.88 + Math.sin(angle * 2) * 0.02;
+        itemMesh.position.y = 1.62 + Math.sin(angle * 2) * 0.02;
       }
       renderer.render(scene, camera);
     }

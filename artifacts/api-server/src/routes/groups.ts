@@ -58,7 +58,7 @@ router.get("/groups", async (req, res): Promise<void> => {
     db.select({ count: sql<number>`count(*)` }).from(groupsTable).where(eq(groupsTable.isPublic, true)),
   ]);
 
-  const groups = results.map((r) => formatGroup(r.groups, r.users));
+  const groups = results.map((r: any) => formatGroup(r.groups, r.users));
   res.json({ groups, total: Number(countResult[0]?.count ?? 0) });
 });
 
@@ -79,7 +79,7 @@ router.post("/groups", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
-  const slug = await uniqueSlug(name, async (s) => {
+  const slug = await uniqueSlug(name, async (s: any) => {
     const existing = await db.select({ id: groupsTable.id }).from(groupsTable).where(eq(groupsTable.slug, s));
     return existing.length > 0;
   });
@@ -112,7 +112,7 @@ router.post("/groups", requireAuth, async (req, res): Promise<void> => {
 
 // GET /groups/:id
 router.get("/groups/:id", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const sessionIdForGet = getSessionId(req);
@@ -133,7 +133,7 @@ router.get("/groups/:id", async (req, res): Promise<void> => {
     .where(eq(groupMembersTable.groupId, id))
     .orderBy(groupMembersTable.joinedAt);
 
-  const members = membersResult.map((m) => ({
+  const members = membersResult.map((m: any) => ({
     id: m.group_members.id,
     userId: m.group_members.userId,
     groupId: m.group_members.groupId,
@@ -144,7 +144,7 @@ router.get("/groups/:id", async (req, res): Promise<void> => {
 
   let isMember = false;
   if (sessionUser) {
-    isMember = members.some((m) => m.userId === sessionUser.id);
+    isMember = members.some((m: any) => m.userId === sessionUser.id);
   }
 
   res.json({
@@ -156,7 +156,7 @@ router.get("/groups/:id", async (req, res): Promise<void> => {
 
 // GET /groups/:id/members
 router.get("/groups/:id/members", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const membersResult = await db
@@ -166,7 +166,7 @@ router.get("/groups/:id/members", async (req, res): Promise<void> => {
     .where(eq(groupMembersTable.groupId, id))
     .orderBy(groupMembersTable.joinedAt);
 
-  const members = membersResult.map((m) => ({
+  const members = membersResult.map((m: any) => ({
     id: m.group_members.id,
     userId: m.group_members.userId,
     groupId: m.group_members.groupId,
@@ -184,7 +184,7 @@ router.post("/groups/:id/join", requireAuth, async (req, res): Promise<void> => 
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
@@ -207,7 +207,7 @@ router.post("/groups/:id/leave", requireAuth, async (req, res): Promise<void> =>
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
@@ -229,7 +229,7 @@ router.post("/groups/:id/leave", requireAuth, async (req, res): Promise<void> =>
 
 // GET /users/:id/groups
 router.get("/users/:id/groups", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.id, 10);
+  const userId = parseInt(String(req.params.id), 10);
   if (isNaN(userId)) { res.status(404).json({ error: "Not found" }); return; }
 
   const results = await db
@@ -240,13 +240,13 @@ router.get("/users/:id/groups", async (req, res): Promise<void> => {
     .where(eq(groupMembersTable.userId, userId))
     .orderBy(desc(groupMembersTable.joinedAt));
 
-  const groups = results.map((r) => formatGroup(r.groups, r.users));
+  const groups = results.map((r: any) => formatGroup(r.groups, r.users));
   res.json(groups);
 });
 
 // GET /groups/:id/posts
 router.get("/groups/:id/posts", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const results = await db
@@ -257,7 +257,7 @@ router.get("/groups/:id/posts", async (req, res): Promise<void> => {
     .orderBy(desc(groupPostsTable.createdAt));
 
   res.json(
-    results.map((r) => ({
+    results.map((r: any) => ({
       id: r.group_posts.id,
       groupId: r.group_posts.groupId,
       authorId: r.group_posts.authorId,
@@ -274,7 +274,7 @@ router.post("/groups/:id/posts", requireAuth, async (req, res): Promise<void> =>
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const { content } = req.body;
@@ -315,8 +315,8 @@ router.delete("/groups/:id/posts/:postId", requireAuth, async (req, res): Promis
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const groupId = parseInt(req.params.id, 10);
-  const postId = parseInt(req.params.postId, 10);
+  const groupId = parseInt(String(req.params.id), 10);
+  const postId = parseInt(String(req.params.postId), 10);
   if (isNaN(groupId) || isNaN(postId)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [post] = await db.select().from(groupPostsTable).where(eq(groupPostsTable.id, postId));
@@ -355,7 +355,7 @@ router.delete("/groups/:id", requireAuth, async (req, res): Promise<void> => {
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
@@ -376,7 +376,7 @@ router.delete("/groups/:id", requireAuth, async (req, res): Promise<void> => {
 
 // GET /groups/:id/games — games featured in this group
 router.get("/groups/:id/games", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const results = await db
@@ -387,7 +387,7 @@ router.get("/groups/:id/games", async (req, res): Promise<void> => {
     .where(eq(groupGamesTable.groupId, id))
     .orderBy(desc(groupGamesTable.addedAt));
 
-  res.json(results.map((r) => formatGame(r.games, r.users)));
+  res.json(results.map((r: any) => formatGame(r.games, r.users)));
 });
 
 // POST /groups/:id/games — group owner adds one of THEIR OWN games to the group
@@ -396,7 +396,7 @@ router.post("/groups/:id/games", requireAuth, async (req, res): Promise<void> =>
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   const { gameId } = req.body;
   if (isNaN(id) || typeof gameId !== "number") { res.status(400).json({ error: "Invalid request" }); return; }
 
@@ -435,8 +435,8 @@ router.delete("/groups/:id/games/:gameId", requireAuth, async (req, res): Promis
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
-  const gameId = parseInt(req.params.gameId, 10);
+  const id = parseInt(String(req.params.id), 10);
+  const gameId = parseInt(String(req.params.gameId), 10);
   if (isNaN(id) || isNaN(gameId)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));

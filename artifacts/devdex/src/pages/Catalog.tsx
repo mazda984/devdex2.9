@@ -40,7 +40,7 @@ export default function Catalog() {
   const [price, setPrice] = useState("2");
   const [itemType, setItemType] = useState<CatalogItemType>("hat");
 
-  const ownedIds = new Set((myItems ?? []).map((i) => i.id));
+  const ownedIds = new Set((myItems ?? []).map((i: CatalogItem) => i.id));
 
   function handleCreate() {
     const priceNum = parseInt(price, 10);
@@ -183,7 +183,7 @@ export default function Catalog() {
         <div className="flex items-center justify-center py-20"><Loader /></div>
       ) : items && items.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {items.map((item) => {
+          {items.map((item: CatalogItem) => {
             const owned = ownedIds.has(item.id);
             const isEquipped = user?.avatarItemId === item.id;
             return (

@@ -79,15 +79,15 @@ router.get("/games/featured", async (_req, res): Promise<void> => {
     const combined = [...results];
     for (const row of extra) {
       if (combined.length >= 5) break;
-      if (!combined.find((r) => r.games.id === row.games.id)) {
+      if (!combined.find((r: any) => r.games.id === row.games.id)) {
         combined.push(row);
       }
     }
-    res.json(combined.slice(0, 5).map((r) => formatGame(r.games, r.users)));
+    res.json(combined.slice(0, 5).map((r: any) => formatGame(r.games, r.users)));
     return;
   }
 
-  res.json(results.map((r) => formatGame(r.games, r.users)));
+  res.json(results.map((r: any) => formatGame(r.games, r.users)));
 });
 
 router.get("/games/search", async (req, res): Promise<void> => {
@@ -112,7 +112,7 @@ router.get("/games/search", async (req, res): Promise<void> => {
     .orderBy(desc(gamesTable.playCount))
     .limit(20);
 
-  res.json(results.map((r) => formatGame(r.games, r.users)));
+  res.json(results.map((r: any) => formatGame(r.games, r.users)));
 });
 
 router.get("/games/stats", async (_req, res): Promise<void> => {
@@ -163,9 +163,9 @@ router.get("/games/discovery", async (_req, res): Promise<void> => {
     .limit(LIMIT);
 
   res.json({
-    activelyPlayed: activelyPlayedRows.map((r) => formatGame(r.games, r.users)),
-    popular: popularRows.map((r) => formatGame(r.games, r.users)),
-    recommended: recommendedRows.map((r) => formatGame(r.games, r.users)),
+    activelyPlayed: activelyPlayedRows.map((r: any) => formatGame(r.games, r.users)),
+    popular: popularRows.map((r: any) => formatGame(r.games, r.users)),
+    recommended: recommendedRows.map((r: any) => formatGame(r.games, r.users)),
   });
 });
 
@@ -211,7 +211,7 @@ router.get("/games", async (req, res): Promise<void> => {
     .offset(offset);
 
   res.json({
-    games: results.map((r) => formatGame(r.games, r.users)),
+    games: results.map((r: any) => formatGame(r.games, r.users)),
     total: totalResult?.count ?? 0,
   });
 });
@@ -263,7 +263,7 @@ router.post("/games", async (req, res): Promise<void> => {
 });
 
 router.get("/games/:id", async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const raw = Array.isArray(String(req.params.id)) ? String(req.params.id)[0] : String(req.params.id);
   const params = GetGameParams.safeParse({ id: raw });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -329,7 +329,7 @@ router.patch("/games/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const raw = Array.isArray(String(req.params.id)) ? String(req.params.id)[0] : String(req.params.id);
   const params = UpdateGameParams.safeParse({ id: raw });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -386,7 +386,7 @@ router.delete("/games/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const raw = Array.isArray(String(req.params.id)) ? String(req.params.id)[0] : String(req.params.id);
   const params = DeleteGameParams.safeParse({ id: raw });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -416,7 +416,7 @@ router.delete("/games/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/users/:id/games", async (req, res): Promise<void> => {
-  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const raw = Array.isArray(String(req.params.id)) ? String(req.params.id)[0] : String(req.params.id);
   const params = GetUserGamesParams.safeParse({ id: raw });
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -430,12 +430,12 @@ router.get("/users/:id/games", async (req, res): Promise<void> => {
     .where(eq(gamesTable.authorId, params.data.id))
     .orderBy(desc(gamesTable.createdAt));
 
-  res.json(results.map((r) => formatGame(r.games, r.users)));
+  res.json(results.map((r: any) => formatGame(r.games, r.users)));
 });
 
 // GET /users/:id/play-history — games this user has played, most recent first
 router.get("/users/:id/play-history", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.id, 10);
+  const userId = parseInt(String(req.params.id), 10);
   if (isNaN(userId)) { res.status(404).json({ error: "Not found" }); return; }
 
   const results = await db
@@ -447,7 +447,7 @@ router.get("/users/:id/play-history", async (req, res): Promise<void> => {
     .orderBy(desc(gamePlaysTable.playedAt))
     .limit(24);
 
-  res.json(results.map((r) => formatGame(r.games, r.users)));
+  res.json(results.map((r: any) => formatGame(r.games, r.users)));
 });
 
 // Badge tiers, in ascending order — a game can only earn its highest
@@ -461,14 +461,14 @@ const BADGE_TIERS = [
 // GET /users/:id/badges — badges earned from this user's games' play counts.
 // Computed live from playCount, not stored, so it's always accurate.
 router.get("/users/:id/badges", async (req, res): Promise<void> => {
-  const userId = parseInt(req.params.id, 10);
+  const userId = parseInt(String(req.params.id), 10);
   if (isNaN(userId)) { res.status(404).json({ error: "Not found" }); return; }
 
   const games = await db.select().from(gamesTable).where(eq(gamesTable.authorId, userId));
 
   const badges = games
-    .map((game) => {
-      const tier = [...BADGE_TIERS].reverse().find((t) => game.playCount >= t.threshold);
+    .map((game: any) => {
+      const tier = [...BADGE_TIERS].reverse().find((t: any) => game.playCount >= t.threshold);
       if (!tier) return null;
       return {
         badgeId: tier.id,
@@ -481,13 +481,13 @@ router.get("/users/:id/badges", async (req, res): Promise<void> => {
         playCount: game.playCount,
       };
     })
-    .filter((b): b is NonNullable<typeof b> => b !== null)
-    .sort((a, b) => b.playCount - a.playCount);
+    .filter((b: any): b is NonNullable<typeof b> => b !== null)
+    .sort((a: any, b: any) => b.playCount - a.playCount);
 
   res.json(badges);
 });
 router.get("/games/:id/comments", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const results = await db
@@ -498,7 +498,7 @@ router.get("/games/:id/comments", async (req, res): Promise<void> => {
     .orderBy(desc(gameCommentsTable.createdAt));
 
   res.json(
-    results.map((r) => ({
+    results.map((r: any) => ({
       id: r.game_comments.id,
       gameId: r.game_comments.gameId,
       authorId: r.game_comments.authorId,
@@ -515,7 +515,7 @@ router.post("/games/:id/comments", async (req, res): Promise<void> => {
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const { content } = req.body;
@@ -548,8 +548,8 @@ router.delete("/games/:id/comments/:commentId", async (req, res): Promise<void> 
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const gameId = parseInt(req.params.id, 10);
-  const commentId = parseInt(req.params.commentId, 10);
+  const gameId = parseInt(String(req.params.id), 10);
+  const commentId = parseInt(String(req.params.commentId), 10);
   if (isNaN(gameId) || isNaN(commentId)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [comment] = await db.select().from(gameCommentsTable).where(eq(gameCommentsTable.id, commentId));
@@ -570,7 +570,7 @@ router.post("/games/:id/report", async (req, res): Promise<void> => {
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Not authenticated" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const { reason } = req.body as { reason?: string };

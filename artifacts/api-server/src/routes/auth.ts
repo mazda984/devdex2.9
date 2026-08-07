@@ -163,7 +163,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
 
 // GET /users/:id — public profile info, independent of whether they've published any games
 router.get("/users/:id", async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "User not found" }); return; }
 
   const [foundUser] = await db.select().from(usersTable).where(eq(usersTable.id, id));
@@ -219,7 +219,7 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
         grant_type: "authorization_code",
       }),
     });
-    const tokenData = await tokenRes.json();
+    const tokenData = (await tokenRes.json()) as { access_token?: string };
     if (!tokenRes.ok || !tokenData.access_token) {
       res.redirect(`${frontendUrl}?googleAuth=failed`);
       return;
@@ -228,7 +228,12 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
     const profileRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
-    const profile = await profileRes.json();
+    const profile = (await profileRes.json()) as {
+      email?: string;
+      sub?: string;
+      name?: string;
+      picture?: string;
+    };
     if (!profileRes.ok || !profile.email) {
       res.redirect(`${frontendUrl}?googleAuth=failed`);
       return;

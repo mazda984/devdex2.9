@@ -72,7 +72,7 @@ router.get("/studio/scenes/mine", requireAuth, async (req, res): Promise<void> =
     .orderBy(desc(studioScenesTable.createdAt));
 
   res.json(
-    results.map((s) => ({
+    results.map((s: any) => ({
       slug: s.slug,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
@@ -86,7 +86,7 @@ router.get("/studio/scenes/:slug", async (req, res): Promise<void> => {
     .select()
     .from(studioScenesTable)
     .innerJoin(usersTable, eq(studioScenesTable.authorId, usersTable.id))
-    .where(eq(studioScenesTable.slug, req.params.slug));
+    .where(eq(studioScenesTable.slug, String(req.params.slug)));
 
   if (!scene) { res.status(404).json({ error: "Not found" }); return; }
 

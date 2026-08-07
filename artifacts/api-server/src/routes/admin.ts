@@ -28,7 +28,7 @@ router.get("/admin/users", requireAdmin, async (_req, res): Promise<void> => {
 
 // PATCH /admin/users/:id — grant/revoke admin, or set a user's DexBux balance
 router.patch("/admin/users/:id", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
@@ -61,7 +61,7 @@ const MAX_BAN_HOURS = 24;
 
 // POST /admin/users/:id/ban — suspend access for up to 24 hours (account itself is never deleted)
 router.post("/admin/users/:id/ban", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [target] = await db.select().from(usersTable).where(eq(usersTable.id, id));
@@ -82,7 +82,7 @@ router.post("/admin/users/:id/ban", requireAdmin, async (req, res): Promise<void
 
 // POST /admin/users/:id/unban — lift a ban early
 router.post("/admin/users/:id/unban", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [updated] = await db.update(usersTable).set({ bannedUntil: null }).where(eq(usersTable.id, id)).returning();
@@ -92,7 +92,7 @@ router.post("/admin/users/:id/unban", requireAdmin, async (req, res): Promise<vo
 
 // DELETE /admin/games/:id — admin override, delete any game regardless of owner
 router.delete("/admin/games/:id", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   await db.delete(gameCommentsTable).where(eq(gameCommentsTable.gameId, id));
@@ -103,7 +103,7 @@ router.delete("/admin/games/:id", requireAdmin, async (req, res): Promise<void> 
 
 // DELETE /admin/groups/:id — admin override, delete any group regardless of owner
 router.delete("/admin/groups/:id", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   await db.delete(groupPostsTable).where(eq(groupPostsTable.groupId, id));
@@ -288,7 +288,7 @@ router.get("/admin/reports", requireAdmin, async (_req, res): Promise<void> => {
     .orderBy(desc(gameReportsTable.createdAt));
 
   res.json(
-    results.map((r) => ({
+    results.map((r: any) => ({
       id: r.game_reports.id,
       reason: r.game_reports.reason,
       createdAt: r.game_reports.createdAt.toISOString(),
@@ -305,7 +305,7 @@ router.get("/admin/reports", requireAdmin, async (_req, res): Promise<void> => {
 
 // DELETE /admin/reports/:id — dismiss a report without deleting the game
 router.delete("/admin/reports/:id", requireAdmin, async (req, res): Promise<void> => {
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
   await db.delete(gameReportsTable).where(eq(gameReportsTable.id, id));
   res.json({ success: true });

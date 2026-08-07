@@ -41,7 +41,7 @@ router.get("/friends/status/:userId", requireAuth, async (req, res): Promise<voi
   const me = sessionId ? await getSessionUser(sessionId) : null;
   if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const otherId = parseInt(req.params.userId, 10);
+  const otherId = parseInt(String(req.params.userId), 10);
   if (isNaN(otherId)) { res.status(404).json({ error: "Not found" }); return; }
 
   if (otherId === me.id) { res.json({ status: "self" }); return; }
@@ -114,7 +114,7 @@ router.get("/friends/requests", requireAuth, async (req, res): Promise<void> => 
     .orderBy(desc(friendshipsTable.createdAt));
 
   res.json(
-    results.map((r) => ({
+    results.map((r: any) => ({
       friendshipId: r.friendships.id,
       from: safeUser(r.users),
       createdAt: r.friendships.createdAt.toISOString(),
@@ -128,7 +128,7 @@ router.post("/friends/:id/accept", requireAuth, async (req, res): Promise<void> 
   const me = sessionId ? await getSessionUser(sessionId) : null;
   if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   const [friendship] = await db.select().from(friendshipsTable).where(eq(friendshipsTable.id, id));
   if (!friendship || friendship.addresseeId !== me.id) { res.status(404).json({ error: "Not found" }); return; }
 
@@ -147,7 +147,7 @@ router.post("/friends/:id/decline", requireAuth, async (req, res): Promise<void>
   const me = sessionId ? await getSessionUser(sessionId) : null;
   if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   const [friendship] = await db.select().from(friendshipsTable).where(eq(friendshipsTable.id, id));
   if (!friendship || friendship.addresseeId !== me.id) { res.status(404).json({ error: "Not found" }); return; }
 
@@ -161,7 +161,7 @@ router.delete("/friends/:id", requireAuth, async (req, res): Promise<void> => {
   const me = sessionId ? await getSessionUser(sessionId) : null;
   if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   const [friendship] = await db.select().from(friendshipsTable).where(eq(friendshipsTable.id, id));
   if (!friendship || (friendship.requesterId !== me.id && friendship.addresseeId !== me.id)) {
     res.status(404).json({ error: "Not found" });
@@ -188,12 +188,12 @@ router.get("/friends/mine", requireAuth, async (req, res): Promise<void> => {
       ),
     );
 
-  const friendIds = results.map((r) => (r.requesterId === me.id ? r.addresseeId : r.requesterId));
+  const friendIds = results.map((r: any) => (r.requesterId === me.id ? r.addresseeId : r.requesterId));
   if (friendIds.length === 0) { res.json([]); return; }
 
   const friends = await db.select().from(usersTable);
   const friendSet = new Set(friendIds);
-  res.json(friends.filter((u) => friendSet.has(u.id)).map(safeUser));
+  res.json(friends.filter((u: any) => friendSet.has(u.id)).map(safeUser));
 });
 
 // GET /messages/:userId — conversation with a friend
@@ -202,7 +202,7 @@ router.get("/messages/:userId", requireAuth, async (req, res): Promise<void> => 
   const me = sessionId ? await getSessionUser(sessionId) : null;
   if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const otherId = parseInt(req.params.userId, 10);
+  const otherId = parseInt(String(req.params.userId), 10);
   if (isNaN(otherId)) { res.status(404).json({ error: "Not found" }); return; }
 
   if (!(await areFriends(me.id, otherId))) {
@@ -222,7 +222,7 @@ router.get("/messages/:userId", requireAuth, async (req, res): Promise<void> => 
     .orderBy(messagesTable.createdAt);
 
   res.json(
-    results.map((m) => ({
+    results.map((m: any) => ({
       id: m.id,
       senderId: m.senderId,
       receiverId: m.receiverId,
@@ -238,7 +238,7 @@ router.post("/messages/:userId", requireAuth, async (req, res): Promise<void> =>
   const me = sessionId ? await getSessionUser(sessionId) : null;
   if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const otherId = parseInt(req.params.userId, 10);
+  const otherId = parseInt(String(req.params.userId), 10);
   const { content } = req.body as { content?: string };
   if (isNaN(otherId) || !content || content.trim().length === 0) {
     res.status(400).json({ error: "Invalid request" });
@@ -286,12 +286,12 @@ router.get("/messages", requireAuth, async (req, res): Promise<void> => {
 
   const otherIds = Array.from(seen.keys());
   const users = otherIds.length > 0 ? await db.select().from(usersTable) : [];
-  const userMap = new Map(users.map((u) => [u.id, u]));
+  const userMap = new Map(users.map((u: any) => [u.id, u]));
 
   res.json(
     Array.from(seen.values())
-      .filter((c) => userMap.has(c.otherId))
-      .map((c) => ({
+      .filter((c: any) => userMap.has(c.otherId))
+      .map((c: any) => ({
         user: safeUser(userMap.get(c.otherId)!),
         lastMessage: c.lastMessage,
         createdAt: c.createdAt,

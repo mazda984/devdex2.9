@@ -43,7 +43,7 @@ router.get("/catalog", async (_req, res): Promise<void> => {
     .innerJoin(usersTable, eq(catalogItemsTable.creatorId, usersTable.id))
     .orderBy(desc(catalogItemsTable.createdAt));
 
-  res.json(results.map((r) => formatItem(r.catalog_items, r.users)));
+  res.json(results.map((r: any) => formatItem(r.catalog_items, r.users)));
 });
 
 // GET /catalog/mine — items the current user owns (their inventory)
@@ -60,7 +60,7 @@ router.get("/catalog/mine", requireAuth, async (req, res): Promise<void> => {
     .where(eq(catalogPurchasesTable.userId, user.id))
     .orderBy(desc(catalogPurchasesTable.purchasedAt));
 
-  res.json(results.map((r) => formatItem(r.catalog_items, r.users)));
+  res.json(results.map((r: any) => formatItem(r.catalog_items, r.users)));
 });
 
 // POST /catalog — create a new avatar item (costs CATALOG_ITEM_CREATION_COST DexBux)
@@ -115,7 +115,7 @@ router.post("/catalog/:id/buy", requireAuth, async (req, res): Promise<void> => 
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [item] = await db.select().from(catalogItemsTable).where(eq(catalogItemsTable.id, id));
@@ -166,7 +166,7 @@ router.post("/catalog/:id/equip", requireAuth, async (req, res): Promise<void> =
   const user = sessionId ? await getSessionUser(sessionId) : null;
   if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const id = parseInt(req.params.id, 10);
+  const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(404).json({ error: "Not found" }); return; }
 
   const [owned] = await db

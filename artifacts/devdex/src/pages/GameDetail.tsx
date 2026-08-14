@@ -26,12 +26,25 @@ import { useToast } from "@/hooks/use-toast";
 import { Play, Calendar, User as UserIcon, Tag, ExternalLink, X, Share2, Gamepad2, Trash2, Maximize, Minimize, MessageSquare, Send, Flag } from "lucide-react";
 import { createPortal } from "react-dom";
 import { format, formatDistanceToNow } from "date-fns";
-import { useGameComments, useCreateGameComment, useDeleteGameComment, useReportGame } from "@/lib/extra-api";
+import { useGameComments, useCreateGameComment, useDeleteGameComment, useReportGame, sendPresenceHeartbeat, stopPresence } from "@/lib/extra-api";
 import { Textarea } from "@/components/ui/textarea";
 
-function GameOverlay({ title, gameUrl, onClose }: { title: string; gameUrl: string; onClose: () => void }) {
+function GameOverlay({ title, gameUrl, gameId, onClose }: { title: string; gameUrl: string; gameId: number; onClose: () => void }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Presence: let this player's friends see "playing <title>" + a Join button
+  // on their Home page while this overlay is open.
+  useEffect(() => {
+    sendPresenceHeartbeat(gameId).catch(() => {});
+    const interval = setInterval(() => {
+      sendPresenceHeartbeat(gameId).catch(() => {});
+    }, 20_000);
+    return () => {
+      clearInterval(interval);
+      stopPresence().catch(() => {});
+    };
+  }, [gameId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.fullscreenElement) onClose(); };
@@ -100,6 +113,14 @@ export default function GameDetail() {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  // "Join" button on a friend's Home page links here with ?join=1, which auto-opens
+  // the game overlay immediately instead of making them click Play again.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("join") === "1") {
+      setIsPlaying(true);
+    }
+  }, []);
 
   const { data: game, isLoading, error } = useGetGame(gameId, {
     query: {
@@ -352,6 +373,7 @@ export default function GameDetail() {
         <GameOverlay
           title={game.title}
           gameUrl={game.gameUrl}
+          gameId={game.id}
           onClose={() => setIsPlaying(false)}
         />
       )}

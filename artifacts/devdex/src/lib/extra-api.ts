@@ -435,11 +435,35 @@ export function useRemoveFriend() {
   });
 }
 
+// A friend as returned by /api/friends/mine - the base User plus "now playing"
+// presence info (see routes/social.ts).
+export type FriendWithPresence = User & {
+  online: boolean;
+  currentGameId: number | null;
+  currentGameTitle: string | null;
+};
+
 export function useMyFriends() {
   return useQuery({
     queryKey: ["friends-mine"] as const,
-    queryFn: () => customFetch<User[]>("/api/friends/mine"),
+    queryFn: () => customFetch<FriendWithPresence[]>("/api/friends/mine"),
+    refetchInterval: 20_000, // keep friends' online/playing status reasonably fresh
   });
+}
+
+// Presence heartbeat: call repeatedly (e.g. every ~20s) while the person has a
+// game open, so their friends' Home page can show them as "playing <game>"
+// with a Join button. Call stopPresence() when they close the game.
+export async function sendPresenceHeartbeat(gameId: number) {
+  return customFetch<{ ok: true }>("/api/presence/heartbeat", {
+    method: "POST",
+    body: JSON.stringify({ gameId }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function stopPresence() {
+  return customFetch<{ ok: true }>("/api/presence/stop", { method: "POST" });
 }
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,7 @@
 import React from "react";
 import { Link } from "wouter";
 import { useGetFeaturedGames, useListGames, useGetGameStats, getGetFeaturedGamesQueryKey, getListGamesQueryKey, getGetGameStatsQueryKey } from "@workspace/api-client-react";
-import type { Game, User } from "@workspace/api-client-react";
-import { useMyFriends } from "@/lib/extra-api";
+import type { Game, User } from "@workspace/api-client-react";import { useMyFriends, type FriendWithPresence } from "@/lib/extra-api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 import GameCard from "@/components/ui/GameCard";
@@ -157,26 +156,67 @@ export default function Home() {
                 {t("home.seeAll")}
               </Link>
             </div>
-            <div className="bg-card border border-border rounded-xl min-h-[110px] flex items-center">
+            <div className="bg-card border border-border rounded-xl min-h-[110px]">
               {friends && friends.length > 0 ? (
-                <div className="flex flex-wrap gap-4 p-4">
-                  {friends.slice(0, 8).map((f: User) => (
-                    <Link key={f.id} href={`/profile/${f.id}`} className="flex flex-col items-center gap-1.5 group w-16">
-                      <div className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden group-hover:border-primary transition-colors">
-                        {f.avatarUrl ? (
-                          <img src={f.avatarUrl} alt={f.username} className="w-full h-full object-cover" />
-                        ) : (
-                          <UserCircle className="w-full h-full text-muted-foreground p-2" />
-                        )}
-                      </div>
-                      <span className="text-xs text-center truncate w-full text-muted-foreground group-hover:text-foreground">
-                        {f.username}
-                      </span>
-                    </Link>
-                  ))}
-                </div>
+                <>
+                  {friends.some((f: FriendWithPresence) => f.online && f.currentGameId) && (
+                    <div className="flex flex-col gap-2 p-4 border-b border-border">
+                      {friends
+                        .filter((f: FriendWithPresence) => f.online && f.currentGameId)
+                        .map((f: FriendWithPresence) => (
+                          <div key={f.id} className="flex items-center gap-3 bg-secondary/50 border border-border rounded-lg px-3 py-2">
+                            <div className="relative shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-secondary border border-border overflow-hidden">
+                                {f.avatarUrl ? (
+                                  <img src={f.avatarUrl} alt={f.username} className="w-full h-full object-cover" />
+                                ) : (
+                                  <UserCircle className="w-full h-full text-muted-foreground p-1.5" />
+                                )}
+                              </div>
+                              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-foreground truncate">{f.username}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {t("home.playing", { game: f.currentGameTitle || "" })}
+                              </div>
+                            </div>
+                            <Link href={`/games/${f.currentGameId}?join=1`}>
+                              <Button size="sm" className="font-semibold shrink-0">
+                                <Gamepad2 className="w-3.5 h-3.5 mr-1.5" />
+                                {t("home.join")}
+                              </Button>
+                            </Link>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-4 p-4">
+                    {friends.slice(0, 8).map((f: FriendWithPresence) => (
+                      <Link key={f.id} href={`/profile/${f.id}`} className="flex flex-col items-center gap-1.5 group w-16">
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden group-hover:border-primary transition-colors">
+                            {f.avatarUrl ? (
+                              <img src={f.avatarUrl} alt={f.username} className="w-full h-full object-cover" />
+                            ) : (
+                              <UserCircle className="w-full h-full text-muted-foreground p-2" />
+                            )}
+                          </div>
+                          {f.online && (
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
+                          )}
+                        </div>
+                        <span className="text-xs text-center truncate w-full text-muted-foreground group-hover:text-foreground">
+                          {f.username}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </>
               ) : (
-                <p className="text-sm text-muted-foreground px-4">{t("home.noFriends")}</p>
+                <div className="flex items-center min-h-[110px]">
+                  <p className="text-sm text-muted-foreground px-4">{t("home.noFriends")}</p>
+                </div>
               )}
             </div>
           </section>

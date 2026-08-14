@@ -1,9 +1,15 @@
 import { Router, type IRouter } from "express";
-import { db, friendshipsTable, messagesTable, usersTable } from "@workspace/db";
-import { eq, and, or, desc } from "drizzle-orm";
+import { db, friendshipsTable, messagesTable, usersTable, gamesTable } from "@workspace/db";
+import { eq, and, or, desc, inArray } from "drizzle-orm";
 import { requireAuth, getSessionUser, getSessionId } from "../lib/auth";
 
 const router: IRouter = Router();
+
+// A friend only shows as "online / playing" if their last heartbeat (see
+// POST /presence/heartbeat below) is more recent than this. The game overlay
+// pings every ~20s while open, so 45s comfortably covers normal network jitter
+// while still going stale quickly if the tab is closed/crashes.
+const ONLINE_THRESHOLD_MS = 45_000;
 
 function safeUser(user: typeof usersTable.$inferSelect) {
   return {
@@ -172,7 +178,8 @@ router.delete("/friends/:id", requireAuth, async (req, res): Promise<void> => {
   res.json({ success: true });
 });
 
-// GET /friends/mine — my accepted friends
+// GET /friends/mine — my accepted friends, with "now playing" presence info
+// so the Home page can show a Join button for friends currently in a game.
 router.get("/friends/mine", requireAuth, async (req, res): Promise<void> => {
   const sessionId = getSessionId(req);
   const me = sessionId ? await getSessionUser(sessionId) : null;
@@ -193,7 +200,59 @@ router.get("/friends/mine", requireAuth, async (req, res): Promise<void> => {
 
   const friends = await db.select().from(usersTable);
   const friendSet = new Set(friendIds);
-  res.json(friends.filter((u: any) => friendSet.has(u.id)).map(safeUser));
+  const friendUsers = friends.filter((u: any) => friendSet.has(u.id));
+
+  const gameIds = [...new Set(friendUsers.map((u: any) => u.currentGameId).filter((id: any): id is number => !!id))];
+  const games = gameIds.length > 0
+    ? await db.select().from(gamesTable).where(inArray(gamesTable.id, gameIds as number[]))
+    : [];
+  const gameById = new Map<number, typeof gamesTable.$inferSelect>(games.map((g: any) => [g.id, g]));
+
+  const now = Date.now();
+  res.json(
+    friendUsers.map((u: any) => {
+      const isRecentlyActive = u.currentActivityAt && now - new Date(u.currentActivityAt).getTime() < ONLINE_THRESHOLD_MS;
+      const game = isRecentlyActive && u.currentGameId ? gameById.get(u.currentGameId) : null;
+      return {
+        ...safeUser(u),
+        online: !!isRecentlyActive,
+        currentGameId: game ? game.id : null,
+        currentGameTitle: game ? game.title : null,
+      };
+    }),
+  );
+});
+
+// POST /presence/heartbeat — "I'm currently playing game :gameId". Called every
+// ~20s from the game overlay while it's open (see GameDetail.tsx).
+router.post("/presence/heartbeat", requireAuth, async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const me = sessionId ? await getSessionUser(sessionId) : null;
+  if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const gameId = parseInt(String(req.body?.gameId), 10);
+  if (!Number.isInteger(gameId)) { res.status(400).json({ error: "gameId is required" }); return; }
+
+  await db
+    .update(usersTable)
+    .set({ currentGameId: gameId, currentActivityAt: new Date() })
+    .where(eq(usersTable.id, me.id));
+  res.json({ ok: true });
+});
+
+// POST /presence/stop — called when the game overlay closes, so friends stop
+// seeing you as "playing" immediately instead of waiting for the heartbeat
+// to go stale.
+router.post("/presence/stop", requireAuth, async (req, res): Promise<void> => {
+  const sessionId = getSessionId(req);
+  const me = sessionId ? await getSessionUser(sessionId) : null;
+  if (!me) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  await db
+    .update(usersTable)
+    .set({ currentGameId: null, currentActivityAt: null })
+    .where(eq(usersTable.id, me.id));
+  res.json({ ok: true });
 });
 
 // GET /messages/:userId — conversation with a friend

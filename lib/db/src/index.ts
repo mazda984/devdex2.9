@@ -32,6 +32,14 @@ async function ensureSchemaIsUpToDate() {
       ALTER TABLE "catalog_items"
         ADD COLUMN IF NOT EXISTS "item_type" text NOT NULL DEFAULT 'hat';
     `);
+    await pool.query(`
+      ALTER TABLE "users"
+        ADD COLUMN IF NOT EXISTS "current_game_id" integer;
+    `);
+    await pool.query(`
+      ALTER TABLE "users"
+        ADD COLUMN IF NOT EXISTS "current_activity_at" timestamptz;
+    `);
   } catch (err) {
     // Don't crash the whole process over this — if the tables themselves
     // don't exist yet (fresh database), the normal app queries below will

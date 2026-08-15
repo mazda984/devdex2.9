@@ -26,6 +26,13 @@ export const usersTable = pgTable("users", {
   // open; a friend only counts as "online/playing" if this is recent (see
   // the ONLINE_THRESHOLD_MS check in routes/social.ts).
   currentGameId: integer("current_game_id"),
+  // The EXACT URL the player is currently on inside the game's iframe (e.g. a specific
+  // Krunker server like "https://krunker.io/?game=FRA:7n9c9") - not just the game's
+  // generic listing URL. Only used for devdex2s's own externally-embedded games (the
+  // "Join a friend" flow) - never for devdexstudio3d, which handles multiplayer rooms
+  // itself. Reported via presence heartbeat; see isDevdexStudio3DUrl() in GameDetail.tsx
+  // and routes/social.ts.
+  currentUrl: text("current_url"),
   currentActivityAt: timestamp("current_activity_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

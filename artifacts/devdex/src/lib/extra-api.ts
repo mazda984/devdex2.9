@@ -441,6 +441,7 @@ export type FriendWithPresence = User & {
   online: boolean;
   currentGameId: number | null;
   currentGameTitle: string | null;
+  currentUrl: string | null;
 };
 
 export function useMyFriends() {
@@ -453,11 +454,15 @@ export function useMyFriends() {
 
 // Presence heartbeat: call repeatedly (e.g. every ~20s) while the person has a
 // game open, so their friends' Home page can show them as "playing <game>"
-// with a Join button. Call stopPresence() when they close the game.
-export async function sendPresenceHeartbeat(gameId: number) {
+// with a Join button. `url`, when provided, is the player's exact current
+// in-game URL (e.g. a specific krunker.io server) - devdex2s-only, see
+// GameDetail.tsx's isDevdexStudio3DUrl() - so a friend's Join button can drop
+// them on that same server instead of just the game's front page. Call
+// stopPresence() when they close the game.
+export async function sendPresenceHeartbeat(gameId: number, url?: string) {
   return customFetch<{ ok: true }>("/api/presence/heartbeat", {
     method: "POST",
-    body: JSON.stringify({ gameId }),
+    body: JSON.stringify({ gameId, url }),
     headers: { "Content-Type": "application/json" },
   });
 }

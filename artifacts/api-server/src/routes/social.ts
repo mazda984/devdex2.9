@@ -218,13 +218,16 @@ router.get("/friends/mine", requireAuth, async (req, res): Promise<void> => {
         online: !!isRecentlyActive,
         currentGameId: game ? game.id : null,
         currentGameTitle: game ? game.title : null,
+        currentUrl: isRecentlyActive ? (u.currentUrl || null) : null,
       };
     }),
   );
 });
 
-// POST /presence/heartbeat — "I'm currently playing game :gameId". Called every
-// ~20s from the game overlay while it's open (see GameDetail.tsx).
+// POST /presence/heartbeat — "I'm currently playing game :gameId" (and, optionally,
+// the exact `url` I'm on inside it - devdex2s's own externally-embedded games only,
+// e.g. a specific Krunker server). Called every ~20s from the game overlay while
+// it's open (see GameDetail.tsx).
 router.post("/presence/heartbeat", requireAuth, async (req, res): Promise<void> => {
   const sessionId = getSessionId(req);
   const me = sessionId ? await getSessionUser(sessionId) : null;
@@ -232,10 +235,13 @@ router.post("/presence/heartbeat", requireAuth, async (req, res): Promise<void> 
 
   const gameId = parseInt(String(req.body?.gameId), 10);
   if (!Number.isInteger(gameId)) { res.status(400).json({ error: "gameId is required" }); return; }
+  const url = typeof req.body?.url === "string" && req.body.url.length > 0 && req.body.url.length <= 2000
+    ? req.body.url
+    : null;
 
   await db
     .update(usersTable)
-    .set({ currentGameId: gameId, currentActivityAt: new Date() })
+    .set({ currentGameId: gameId, currentActivityAt: new Date(), currentUrl: url })
     .where(eq(usersTable.id, me.id));
   res.json({ ok: true });
 });
@@ -250,7 +256,7 @@ router.post("/presence/stop", requireAuth, async (req, res): Promise<void> => {
 
   await db
     .update(usersTable)
-    .set({ currentGameId: null, currentActivityAt: null })
+    .set({ currentGameId: null, currentActivityAt: null, currentUrl: null })
     .where(eq(usersTable.id, me.id));
   res.json({ ok: true });
 });

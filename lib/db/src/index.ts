@@ -40,6 +40,14 @@ async function ensureSchemaIsUpToDate() {
       ALTER TABLE "users"
         ADD COLUMN IF NOT EXISTS "current_activity_at" timestamptz;
     `);
+    await pool.query(`
+      ALTER TABLE "users"
+        ADD COLUMN IF NOT EXISTS "current_url" text;
+    `);
+    await pool.query(`
+      ALTER TABLE "users"
+        ADD COLUMN IF NOT EXISTS "current_play_url" text;
+    `);
   } catch (err) {
     // Don't crash the whole process over this — if the tables themselves
     // don't exist yet (fresh database), the normal app queries below will

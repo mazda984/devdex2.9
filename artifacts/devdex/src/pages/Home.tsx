@@ -181,7 +181,7 @@ export default function Home() {
                                 {t("home.playing", { game: f.currentGameTitle || "" })}
                               </div>
                             </div>
-                            <Link href={`/games/${f.currentGameId}?join=1`}>
+                            <Link href={`/games/${f.currentGameId}?join=1${f.currentUrl ? `&url=${encodeURIComponent(f.currentUrl)}` : ''}`}>
                               <Button size="sm" className="font-semibold shrink-0">
                                 <Gamepad2 className="w-3.5 h-3.5 mr-1.5" />
                                 {t("home.join")}

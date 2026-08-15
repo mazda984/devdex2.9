@@ -29,22 +29,48 @@ import { format, formatDistanceToNow } from "date-fns";
 import { useGameComments, useCreateGameComment, useDeleteGameComment, useReportGame, sendPresenceHeartbeat, stopPresence } from "@/lib/extra-api";
 import { Textarea } from "@/components/ui/textarea";
 
-function GameOverlay({ title, gameUrl, gameId, onClose }: { title: string; gameUrl: string; gameId: number; onClose: () => void }) {
+// Only devdex2s's own externally-embedded games (krunker.io, etc.) get "join
+// my friend's exact server" support. devdexstudio3d games already put everything
+// that matters (map + room) in gameUrl itself, so tracking a live sub-URL for
+// them would be redundant and could interfere with their own room system.
+function isDevdexStudio3DUrl(url: string) {
+  return /devdexstudio3d/i.test(url);
+}
+
+function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: string; gameUrl: string; gameId: number; joinUrl?: string | null; onClose: () => void }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const trackLiveUrl = !isDevdexStudio3DUrl(gameUrl);
+  // If we got here via a friend's "Join" button with their exact server URL
+  // captured, start there instead of the game's default landing URL.
+  const [liveUrl, setLiveUrl] = useState(() => (trackLiveUrl && joinUrl ? joinUrl : gameUrl));
 
   // Presence: let this player's friends see "playing <title>" + a Join button
-  // on their Home page while this overlay is open.
+  // that lands them on the exact same URL (e.g. the same krunker.io server),
+  // not just the game's front page. Games that want this to work should
+  // postMessage({ type: 'devdex:url', url: window.location.href }, '*') to
+  // the parent whenever their own URL changes (e.g. after picking a server).
   useEffect(() => {
-    sendPresenceHeartbeat(gameId).catch(() => {});
-    const interval = setInterval(() => {
-      sendPresenceHeartbeat(gameId).catch(() => {});
-    }, 20_000);
+    if (!trackLiveUrl) return;
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (data && data.type === "devdex:url" && typeof data.url === "string") {
+        setLiveUrl(data.url);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [trackLiveUrl]);
+
+  useEffect(() => {
+    const send = () => sendPresenceHeartbeat(gameId, trackLiveUrl ? liveUrl : undefined).catch(() => {});
+    send();
+    const interval = setInterval(send, 20_000);
     return () => {
       clearInterval(interval);
       stopPresence().catch(() => {});
     };
-  }, [gameId]);
+  }, [gameId, trackLiveUrl, liveUrl]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.fullscreenElement) onClose(); };
@@ -95,7 +121,7 @@ function GameOverlay({ title, gameUrl, gameId, onClose }: { title: string; gameU
       </div>
       {/* Game iframe */}
       <iframe
-        src={gameUrl}
+        src={liveUrl}
         className="flex-1 w-full border-none"
         title={title}
         allow="fullscreen; gamepad; autoplay"
@@ -114,11 +140,19 @@ export default function GameDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // "Join" button on a friend's Home page links here with ?join=1, which auto-opens
-  // the game overlay immediately instead of making them click Play again.
+  // "Join" button on a friend's Home page links here with ?join=1 (and, for
+  // devdex2s's own externally-embedded games, &url=<their exact server URL>),
+  // which auto-opens the game overlay immediately instead of making them
+  // click Play again, and drops them on the same server as their friend.
+  const [joinUrl, setJoinUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("join") === "1") {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("join") === "1") {
       setIsPlaying(true);
+      const url = params.get("url");
+      if (url) {
+        try { setJoinUrl(decodeURIComponent(url)); } catch (e) { setJoinUrl(url); }
+      }
     }
   }, []);
 
@@ -374,6 +408,7 @@ export default function GameDetail() {
           title={game.title}
           gameUrl={game.gameUrl}
           gameId={game.id}
+          joinUrl={joinUrl}
           onClose={() => setIsPlaying(false)}
         />
       )}

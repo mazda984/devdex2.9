@@ -82,7 +82,7 @@ export default function Groups() {
         }
       },
       {
-        onSuccess: (newGroup) => {
+        onSuccess: (newGroup: any) => {
           queryClient.invalidateQueries({ queryKey: getListGroupsQueryKey() });
           toast({ title: "Group created successfully!" });
           setIsDialogOpen(false);
@@ -223,7 +223,7 @@ export default function Groups() {
           <div className="pt-20"><Loader /></div>
         ) : groups.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {groups.map((group) => (
+            {groups.map((group: any) => (
               <div key={group.id} className="bg-card rounded-xl border border-border overflow-hidden flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-lg group">
                 <div 
                   className="aspect-video w-full bg-secondary overflow-hidden relative cursor-pointer"

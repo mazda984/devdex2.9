@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useAdminUsers, useUpdateAdminUser, useBanUser, useUnbanUser, useAdminReports, useDismissReport, useAdminDeleteGame } from "@/lib/extra-api";
+import type { User } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader } from "@/components/ui/Loader";
@@ -160,7 +161,7 @@ export default function Admin() {
               </tr>
             </thead>
             <tbody>
-              {users?.map((u) => (
+              {users?.map((u: User) => (
                 <tr key={u.id} className="border-b border-border last:border-0">
                   <td className="p-4 font-semibold text-foreground">{u.username}</td>
                   <td className="p-4 text-muted-foreground">{u.email}</td>

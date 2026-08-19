@@ -40,22 +40,32 @@ function isDevdexStudio3DUrl(url: string) {
 function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: string; gameUrl: string; gameId: number; joinUrl?: string | null; onClose: () => void }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showShareBox, setShowShareBox] = useState(false);
+  const [shareInput, setShareInput] = useState("");
+  const [shareConfirmed, setShareConfirmed] = useState(false);
   const trackLiveUrl = !isDevdexStudio3DUrl(gameUrl);
   // If we got here via a friend's "Join" button with their exact server URL
   // captured, start there instead of the game's default landing URL.
   const [liveUrl, setLiveUrl] = useState(() => (trackLiveUrl && joinUrl ? joinUrl : gameUrl));
 
   // Presence: let this player's friends see "playing <title>" + a Join button
-  // that lands them on the exact same URL (e.g. the same krunker.io server),
-  // not just the game's front page. Games that want this to work should
-  // postMessage({ type: 'devdex:url', url: window.location.href }, '*') to
-  // the parent whenever their own URL changes (e.g. after picking a server).
+  // that lands them on the exact same URL (e.g. the same server/room), not just
+  // the game's front page. Two ways this gets filled in:
+  // 1. Automatic: the game itself postMessage({ type: 'devdex:url', url: ... })'s
+  //    its current URL to us whenever it changes - most third-party games don't
+  //    do this, since it requires them knowing about devdex2s specifically.
+  // 2. Manual (see the "Share my server" box below): the player pastes in the
+  //    link/code the GAME's own UI shows them (most multiplayer io-games have a
+  //    "copy invite link" button somewhere) - this always works regardless of
+  //    whether the game cooperates with #1, because it's the player doing it,
+  //    not us reading across the cross-origin boundary.
   useEffect(() => {
     if (!trackLiveUrl) return;
     const onMessage = (event: MessageEvent) => {
       const data = event.data;
       if (data && data.type === "devdex:url" && typeof data.url === "string") {
         setLiveUrl(data.url);
+        setShareConfirmed(true);
       }
     };
     window.addEventListener("message", onMessage);
@@ -71,6 +81,21 @@ function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: stri
       stopPresence().catch(() => {});
     };
   }, [gameId, trackLiveUrl, liveUrl]);
+
+  const submitShareUrl = () => {
+    const raw = shareInput.trim();
+    if (!raw) return;
+    // Accept either a full URL they pasted, or just a bare room code (e.g. "DZ9SD4")
+    // typed by hand - in that case we can't know the game's exact URL scheme
+    // (query param vs #hash), so we just keep the current liveUrl but at least
+    // surface the code was entered. A pasted full URL (http/https) is what
+    // actually lets Join take a friend to the right place.
+    if (/^https?:\/\//i.test(raw)) {
+      setLiveUrl(raw);
+    }
+    setShareConfirmed(true);
+    setShowShareBox(false);
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !document.fullscreenElement) onClose(); };
@@ -102,6 +127,18 @@ function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: stri
       <div className="flex items-center justify-between px-4 h-12 bg-black/80 backdrop-blur-sm border-b border-white/10 flex-shrink-0">
         <span className="text-white font-semibold text-sm truncate">{title}</span>
         <div className="flex items-center gap-1">
+          {trackLiveUrl && (
+            <button
+              onClick={() => setShowShareBox((v) => !v)}
+              className={`flex items-center gap-1.5 px-3 h-9 rounded-lg text-xs font-semibold transition-colors ${
+                shareConfirmed ? "text-green-400 hover:bg-white/10" : "text-white/70 hover:text-white hover:bg-white/10"
+              }`}
+              title="Arkadaşların seni bu sunucuda bulabilsin"
+            >
+              <Share2 className="w-4 h-4" />
+              <span className="hidden sm:inline">{shareConfirmed ? "Sunucun paylaşıldı" : "Sunucunu paylaş"}</span>
+            </button>
+          )}
           <button
             onClick={toggleFullscreen}
             className="flex items-center justify-center w-9 h-9 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
@@ -119,6 +156,27 @@ function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: stri
           </button>
         </div>
       </div>
+
+      {showShareBox && trackLiveUrl && (
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-4 py-3 bg-neutral-900 border-b border-white/10 flex-shrink-0">
+          <p className="text-xs text-white/60 sm:max-w-xs">
+            Oyunun kendi arayüzünde bir "davet linki kopyala" seçeneği varsa, o linki buraya yapıştır — arkadaşların "Katıl"a bastığında doğrudan bu sunucuya/odaya düşsün.
+          </p>
+          <div className="flex flex-1 gap-2">
+            <input
+              type="text"
+              value={shareInput}
+              onChange={(e) => setShareInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submitShareUrl(); }}
+              placeholder={`örn. ${gameUrl}#DZ9SD4`}
+              className="flex-1 bg-black/40 border border-white/20 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-primary"
+            />
+            <Button size="sm" onClick={submitShareUrl} className="font-semibold shrink-0">
+              Kaydet
+            </Button>
+          </div>
+        </div>
+      )}
       {/* Game iframe */}
       <iframe
         src={liveUrl}
@@ -281,7 +339,7 @@ export default function GameDetail() {
               </h2>
               <div className="prose prose-neutral dark:prose-invert max-w-none text-muted-foreground">
                 {game.description ? (
-                  game.description.split('\n').map((paragraph, i) => (
+                  game.description.split('\n').map((paragraph: string, i: number) => (
                     <p key={i} className="mb-4 leading-relaxed">{paragraph}</p>
                   ))
                 ) : (
@@ -480,7 +538,7 @@ function GameComments({
         <div className="py-8 flex justify-center"><Loader /></div>
       ) : comments && comments.length > 0 ? (
         <div className="space-y-4">
-          {comments.map((comment) => {
+          {comments.map((comment: any) => {
             const canDelete = currentUserId && (currentUserId === comment.authorId || currentUserId === gameAuthorId || isCurrentUserAdmin);
             return (
               <div key={comment.id} className="flex gap-3 border-b border-border/50 last:border-0 pb-4 last:pb-0">

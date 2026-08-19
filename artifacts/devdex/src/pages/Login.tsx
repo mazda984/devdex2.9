@@ -51,7 +51,7 @@ export default function Login() {
     loginMutation.mutate(
       { data: values },
       {
-        onSuccess: (data) => {
+        onSuccess: (data: any) => {
           queryClient.setQueryData(getGetMeQueryKey(), data.user);
           toast({
             title: "Welcome back!",
@@ -59,7 +59,7 @@ export default function Login() {
           });
           setLocation("/");
         },
-        onError: (error) => {
+        onError: (error: any) => {
           toast({
             title: "Login Failed",
             description: error.data?.error || "Invalid credentials.",

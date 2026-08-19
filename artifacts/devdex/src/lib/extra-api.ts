@@ -116,7 +116,7 @@ export function useEquipCatalogItem() {
       customFetch<{ user: User }>(`/api/catalog/${itemId}/equip`, {
         method: "POST",
       }),
-    onSuccess: (data) => {
+    onSuccess: (data: { user: User }) => {
       queryClient.invalidateQueries({ queryKey: catalogKeys.mine() });
       queryClient.setQueryData(getGetMeQueryKey(), data.user);
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });

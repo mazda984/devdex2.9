@@ -5,25 +5,18 @@ import { defineConfig } from 'vite';
 
 const rawPort = process.env.PORT;
 
-if (!rawPort) {
-  throw new Error(
-    'PORT environment variable is required but was not provided.',
-  );
-}
-
-const port = Number(rawPort);
+// PORT/BASE_PATH only actually matter when running `vite dev`/`vite preview` (they pick
+// which port the dev server listens on, and what base path assets are served under).
+// `vite build` itself doesn't need either - it just wasn't previously configured with a
+// fallback, so CI (which never sets PORT/BASE_PATH) failed here before it could even get
+// to typechecking, since loading this config file is the very first thing `vite build` does.
+const port = rawPort ? Number(rawPort) : 5173;
 
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
-
-if (!basePath) {
-  throw new Error(
-    'BASE_PATH environment variable is required but was not provided.',
-  );
-}
+const basePath = process.env.BASE_PATH || '/';
 
 export default defineConfig({
   base: basePath,

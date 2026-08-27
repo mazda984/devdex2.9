@@ -5,6 +5,7 @@ import NotFound from '@/pages/not-found';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { AuthProvider } from '@/lib/auth';
 import { ThemeProvider } from '@/lib/theme';
+import { I18nProvider } from '@/lib/i18n';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import Home from '@/pages/Home';
@@ -102,6 +103,7 @@ function Router() {
 function App() {
   return (
     <ThemeProvider>
+      <I18nProvider>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
@@ -112,6 +114,7 @@ function App() {
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
+      </I18nProvider>
     </ThemeProvider>
   );
 }

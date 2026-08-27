@@ -1,149 +1,291 @@
 import React from "react";
 import { Link } from "wouter";
 import { useGetFeaturedGames, useListGames, useGetGameStats, getGetFeaturedGamesQueryKey, getListGamesQueryKey, getGetGameStatsQueryKey } from "@workspace/api-client-react";
+import type { Game, User } from "@workspace/api-client-react";import { useMyFriends, type FriendWithPresence } from "@/lib/extra-api";
+import { useAuth } from "@/lib/auth";
+import { useI18n } from "@/lib/i18n";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Wrench, Users, Gamepad2, Play } from "lucide-react";
+import {
+  Home as HomeIcon, User as UserIcon, MessageCircle, Users, Shirt,
+  Package, UsersRound, Rss, Sparkles, UserCircle, Gamepad2,
+} from "lucide-react";
+
+function SidebarLink({ href, icon, label, badge }: { href: string; icon: React.ReactNode; label: string; badge?: number }) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+    >
+      <span className="flex items-center gap-3">
+        <span className="w-5 h-5 flex items-center justify-center">{icon}</span>
+        {label}
+      </span>
+      {!!badge && (
+        <span className="bg-primary text-primary-foreground text-[11px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+          {badge}
+        </span>
+      )}
+    </Link>
+  );
+}
 
 export default function Home() {
+  const { user } = useAuth();
+  const { t } = useI18n();
+
   const { data: featuredGames, isLoading: isLoadingFeatured } = useGetFeaturedGames({
     query: { queryKey: getGetFeaturedGamesQueryKey() }
   });
-  
+
   const { data: recentGamesData, isLoading: isLoadingRecent } = useListGames(
-    { limit: 8, offset: 0 },
-    { query: { queryKey: getListGamesQueryKey({ limit: 8, offset: 0 }) } }
+    { limit: 12, offset: 0 },
+    { query: { queryKey: getListGamesQueryKey({ limit: 12, offset: 0 }) } }
   );
 
   const { data: stats } = useGetGameStats({
     query: { queryKey: getGetGameStatsQueryKey() }
   });
 
+  const { data: friends } = useMyFriends();
+
+  // Logged-out visitors still get a normal marketing-style landing page - the
+  // Roblox-style dashboard below only makes sense once you have an account
+  // (friends, continue-playing, etc. are all per-user).
+  if (!user) {
+    return (
+      <div className="flex flex-col w-full">
+        <section className="relative overflow-hidden pt-24 pb-32 border-b border-border bg-muted/30">
+          <div className="container mx-auto px-4 relative z-10 flex flex-col items-center text-center">
+            <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 max-w-4xl text-foreground">
+              {t("home.welcome")}
+            </h1>
+            <p className="text-xl text-muted-foreground mb-10 max-w-2xl">
+              Browse thousands of high-quality browser games, share your own creations, and join a community of players and developers.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <Link href="/games">
+                <Button size="lg" className="font-bold text-lg h-14 px-8 w-full sm:w-auto shadow-md">
+                  <Gamepad2 className="w-5 h-5 mr-2" />
+                  {t("home.playNow")}
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button size="lg" variant="outline" className="h-14 px-8 font-bold text-lg bg-background w-full sm:w-auto shadow-sm">
+                  {t("nav.signup")}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="py-24 bg-background">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-foreground mb-12">{t("home.featured")}</h2>
+            {isLoadingFeatured ? (
+              <Loader />
+            ) : featuredGames && featuredGames.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                {featuredGames.slice(0, 5).map((game: Game, i: number) => (
+                  <div key={game.id} className={i < 2 ? "lg:col-span-2" : "lg:col-span-1"}>
+                    <GameCard game={game} priority={true} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/20">
+                {t("home.noFeatured")}
+              </div>
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  // Logged-in dashboard, laid out like a classic game-platform homepage:
+  // left icon sidebar, greeting + friends, "continue playing" row, activity feed.
   return (
-    <div className="flex flex-col w-full">
-      {/* Hero Section */}
-      <section className="relative overflow-hidden pt-24 pb-32 border-b border-border bg-muted/30">
-        <div className="container mx-auto px-4 relative z-10 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary font-medium mb-8">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
-            </span>
-            Discover the best web games
-          </div>
-          
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6 max-w-4xl text-foreground">
-            Play instantly. <br className="hidden md:block" />
-            <span className="text-primary">No downloads needed.</span>
-          </h1>
-          
-          <p className="text-xl text-muted-foreground mb-10 max-w-2xl">
-            Browse thousands of high-quality browser games, share your own creations, and join a community of players and developers.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row items-center gap-4">
-            <Link href="/games">
-              <Button size="lg" className="font-bold text-lg h-14 px-8 w-full sm:w-auto shadow-md">
-                <Gamepad2 className="w-5 h-5 mr-2" />
-                Start Playing
-              </Button>
-            </Link>
-            <Link href="/submit">
-              <Button size="lg" variant="outline" className="h-14 px-8 font-bold text-lg bg-background w-full sm:w-auto shadow-sm">
-                <Wrench className="w-5 h-5 mr-2" />
-                Submit Game
+    <div className="container mx-auto px-4 py-6 flex-1 w-full">
+      <div className="flex gap-6 items-start">
+        {/* Left Sidebar */}
+        <aside className="hidden lg:flex flex-col w-56 shrink-0 gap-1 sticky top-20">
+          <SidebarLink href="/" icon={<HomeIcon className="w-5 h-5" />} label={t("sidebar.home")} />
+          <SidebarLink href={`/profile/${user.id}`} icon={<UserIcon className="w-5 h-5" />} label={t("sidebar.profile")} />
+          <SidebarLink href="/messages" icon={<MessageCircle className="w-5 h-5" />} label={t("sidebar.messages")} />
+          <SidebarLink href={`/profile/${user.id}`} icon={<Users className="w-5 h-5" />} label={t("sidebar.friends")} badge={friends?.length || 0} />
+          <SidebarLink href="/catalog" icon={<Shirt className="w-5 h-5" />} label={t("sidebar.avatar")} />
+          <SidebarLink href="/catalog" icon={<Package className="w-5 h-5" />} label={t("sidebar.inventory")} />
+          <SidebarLink href="/groups" icon={<UsersRound className="w-5 h-5" />} label={t("sidebar.groups")} />
+          <SidebarLink href="/" icon={<Rss className="w-5 h-5" />} label={t("sidebar.feed")} />
+
+          <div className="pt-3 mt-2 border-t border-border">
+            <Link href="/catalog">
+              <Button className="w-full font-bold shadow-sm">
+                <Sparkles className="w-4 h-4 mr-2" />
+                {t("sidebar.upgrade")}
               </Button>
             </Link>
           </div>
-        </div>
-      </section>
+        </aside>
 
-      {/* Featured Games */}
-      <section className="py-24 bg-background relative">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-12">
-            <h2 className="text-3xl font-bold text-foreground">
-              Featured Games
-            </h2>
+        {/* Main column */}
+        <main className="flex-1 min-w-0">
+          {/* Greeting */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-16 h-16 rounded-full bg-secondary border border-border flex items-center justify-center overflow-hidden shrink-0">
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+              ) : (
+                <UserCircle className="w-9 h-9 text-muted-foreground" />
+              )}
+            </div>
+            <h1 className="text-3xl font-extrabold text-foreground">
+              {t("home.hello", { name: user.username })}
+            </h1>
           </div>
 
-          {isLoadingFeatured ? (
-            <Loader />
-          ) : featuredGames && featuredGames.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-              {featuredGames.slice(0, 5).map((game, i) => (
-                <div key={game.id} className={i < 2 ? "lg:col-span-2" : "lg:col-span-1"}>
-                  <GameCard game={game} priority={true} />
+          {/* Friends */}
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-foreground">
+                {t("home.friends")} ({friends?.length || 0})
+              </h2>
+              <Link href={`/profile/${user.id}`} className="text-sm font-medium text-primary hover:underline">
+                {t("home.seeAll")}
+              </Link>
+            </div>
+            <div className="bg-card border border-border rounded-xl min-h-[110px]">
+              {friends && friends.length > 0 ? (
+                <>
+                  {friends.some((f: FriendWithPresence) => f.online && f.currentGameId) && (
+                    <div className="flex flex-col gap-2 p-4 border-b border-border">
+                      {friends
+                        .filter((f: FriendWithPresence) => f.online && f.currentGameId)
+                        .map((f: FriendWithPresence) => (
+                          <div key={f.id} className="flex items-center gap-3 bg-secondary/50 border border-border rounded-lg px-3 py-2">
+                            <div className="relative shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-secondary border border-border overflow-hidden">
+                                {f.avatarUrl ? (
+                                  <img src={f.avatarUrl} alt={f.username} className="w-full h-full object-cover" />
+                                ) : (
+                                  <UserCircle className="w-full h-full text-muted-foreground p-1.5" />
+                                )}
+                              </div>
+                              <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-semibold text-foreground truncate">{f.username}</div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {t("home.playing", { game: f.currentGameTitle || "" })}
+                              </div>
+                            </div>
+                            <Link href={`/games/${f.currentGameId}?join=1${f.currentUrl ? `&url=${encodeURIComponent(f.currentUrl)}` : ''}`}>
+                              <Button size="sm" className="font-semibold shrink-0">
+                                <Gamepad2 className="w-3.5 h-3.5 mr-1.5" />
+                                {t("home.join")}
+                              </Button>
+                            </Link>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-4 p-4">
+                    {friends.slice(0, 8).map((f: FriendWithPresence) => (
+                      <Link key={f.id} href={`/profile/${f.id}`} className="flex flex-col items-center gap-1.5 group w-16">
+                        <div className="relative">
+                          <div className="w-14 h-14 rounded-full bg-secondary border border-border overflow-hidden group-hover:border-primary transition-colors">
+                            {f.avatarUrl ? (
+                              <img src={f.avatarUrl} alt={f.username} className="w-full h-full object-cover" />
+                            ) : (
+                              <UserCircle className="w-full h-full text-muted-foreground p-2" />
+                            )}
+                          </div>
+                          {f.online && (
+                            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-green-500 border-2 border-card" />
+                          )}
+                        </div>
+                        <span className="text-xs text-center truncate w-full text-muted-foreground group-hover:text-foreground">
+                          {f.username}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center min-h-[110px]">
+                  <p className="text-sm text-muted-foreground px-4">{t("home.noFriends")}</p>
                 </div>
-              ))}
+              )}
             </div>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground border border-dashed border-border rounded-xl bg-muted/20">
-              No featured games available right now.
+          </section>
+
+          {/* Continue playing */}
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-foreground">{t("home.continue")}</h2>
+              <Link href="/games" className="text-sm font-medium text-primary hover:underline">
+                {t("home.seeAll")}
+              </Link>
             </div>
+            {isLoadingRecent ? (
+              <Loader />
+            ) : recentGamesData?.games && recentGamesData.games.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+                {recentGamesData.games.slice(0, 6).map((game: Game) => (
+                  <GameCard key={game.id} game={game} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl bg-card">
+                {t("home.noGames")}
+              </div>
+            )}
+          </section>
+
+          {/* Featured */}
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-bold text-foreground">{t("home.featured")}</h2>
+              <Link href="/games" className="text-sm font-medium text-primary hover:underline">
+                {t("home.seeAll")}
+              </Link>
+            </div>
+            {isLoadingFeatured ? (
+              <Loader />
+            ) : featuredGames && featuredGames.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6 gap-4">
+                {featuredGames.slice(0, 6).map((game: Game) => (
+                  <GameCard key={game.id} game={game} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-10 text-muted-foreground border border-dashed border-border rounded-xl bg-card">
+                {t("home.noFeatured")}
+              </div>
+            )}
+          </section>
+
+          {/* Platform stats strip */}
+          {stats && (
+            <section className="grid grid-cols-3 divide-x divide-border border border-border rounded-xl overflow-hidden bg-card mb-4">
+              <div className="flex flex-col items-center justify-center py-5">
+                <div className="text-2xl font-extrabold text-foreground">{stats.totalGames.toLocaleString()}</div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mt-1">{t("home.games")}</div>
+              </div>
+              <div className="flex flex-col items-center justify-center py-5">
+                <div className="text-2xl font-extrabold text-foreground">{stats.totalUsers.toLocaleString()}</div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mt-1">{t("home.players")}</div>
+              </div>
+              <div className="flex flex-col items-center justify-center py-5">
+                <div className="text-2xl font-extrabold text-foreground">{stats.totalPlays.toLocaleString()}</div>
+                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mt-1">{t("home.plays")}</div>
+              </div>
+            </section>
           )}
-        </div>
-      </section>
-
-      {/* Platform Stats */}
-      <section className="py-20 border-y border-border bg-primary text-primary-foreground">
-        <div className="container mx-auto px-4 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 divide-y md:divide-y-0 md:divide-x divide-primary-foreground/20">
-            <div className="flex flex-col items-center justify-center p-6">
-              <div className="mb-3 bg-white/20 p-3 rounded-full"><Gamepad2 className="w-8 h-8" /></div>
-              <div className="text-4xl font-extrabold tracking-tight">
-                {stats?.totalGames.toLocaleString() || "..."}
-              </div>
-              <div className="text-sm font-semibold opacity-80 mt-1 uppercase tracking-wider">Games Available</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-6">
-              <div className="mb-3 bg-white/20 p-3 rounded-full"><Users className="w-8 h-8" /></div>
-              <div className="text-4xl font-extrabold tracking-tight">
-                {stats?.totalUsers.toLocaleString() || "..."}
-              </div>
-              <div className="text-sm font-semibold opacity-80 mt-1 uppercase tracking-wider">Active Players</div>
-            </div>
-            <div className="flex flex-col items-center justify-center p-6">
-              <div className="mb-3 bg-white/20 p-3 rounded-full"><Play className="w-8 h-8" /></div>
-              <div className="text-4xl font-extrabold tracking-tight">
-                {stats?.totalPlays.toLocaleString() || "..."}
-              </div>
-              <div className="text-sm font-semibold opacity-80 mt-1 uppercase tracking-wider">Total Plays</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Recent Games */}
-      <section className="py-24 bg-muted/30">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between mb-12">
-            <h2 className="text-3xl font-bold text-foreground">
-              Recently Added
-            </h2>
-            <Link href="/games">
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground group font-medium">
-                View All <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            </Link>
-          </div>
-
-          {isLoadingRecent ? (
-            <Loader />
-          ) : recentGamesData?.games && recentGamesData.games.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {recentGamesData.games.map((game) => (
-                <GameCard key={game.id} game={game} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-20 text-muted-foreground border border-dashed border-border rounded-xl bg-card">
-              No games found. Be the first to submit one!
-            </div>
-          )}
-        </div>
-      </section>
+        </main>
+      </div>
     </div>
   );
 }

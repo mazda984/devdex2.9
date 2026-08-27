@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useListGames, useSearchGames, getListGamesQueryKey, getSearchGamesQueryKey } from "@workspace/api-client-react";
+import type { Game } from "@workspace/api-client-react";
 import { useGameDiscovery } from "@/lib/extra-api";
 import GameCard from "@/components/ui/GameCard";
 import { Loader } from "@/components/ui/Loader";
@@ -108,7 +109,7 @@ export default function Games() {
           <div className="pt-20"><Loader /></div>
         ) : games && games.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {games.map((game) => (
+            {games.map((game: Game) => (
               <GameCard key={game.id} game={game} />
             ))}
           </div>

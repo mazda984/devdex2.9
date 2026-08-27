@@ -194,7 +194,7 @@ export default function Profile() {
         <div className="space-y-6 mb-12">
           <h2 className="text-2xl font-bold text-foreground">Badges</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {badges.map((badge) => (
+            {badges.map((badge: any) => (
               <div key={`${badge.badgeId}-${badge.gameId}`} className="relative rounded-xl overflow-hidden border border-border shadow-sm group aspect-square">
                 {badge.gameCoverImageUrl ? (
                   <img src={badge.gameCoverImageUrl} alt={badge.gameTitle} className="w-full h-full object-cover" />
@@ -236,7 +236,7 @@ export default function Profile() {
         
         {games && games.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {games.map((game) => (
+            {games.map((game: any) => (
               <GameCard
                 key={game.id}
                 game={game}

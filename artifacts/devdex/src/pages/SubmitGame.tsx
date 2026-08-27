@@ -78,7 +78,7 @@ export default function SubmitGame() {
     createGame.mutate(
       { data: submitData },
       {
-        onSuccess: (game) => {
+        onSuccess: (game: any) => {
           queryClient.invalidateQueries({ queryKey: getListGamesQueryKey() });
           toast({
             title: "Game Submitted!",
@@ -86,7 +86,7 @@ export default function SubmitGame() {
           });
           setLocation(`/games/${game.id}`);
         },
-        onError: (error) => {
+        onError: (error: any) => {
           toast({
             title: "Submission Failed",
             description: error.data?.error || "Failed to submit game. Please try again.",

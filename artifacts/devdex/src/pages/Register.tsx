@@ -53,7 +53,7 @@ export default function Register() {
     registerMutation.mutate(
       { data: values },
       {
-        onSuccess: (data) => {
+        onSuccess: (data: any) => {
           queryClient.setQueryData(getGetMeQueryKey(), data.user);
           toast({
             title: "Account Created!",
@@ -61,7 +61,7 @@ export default function Register() {
           });
           setLocation("/");
         },
-        onError: (error) => {
+        onError: (error: any) => {
           toast({
             title: "Registration Failed",
             description: error.data?.error || "Failed to create account.",

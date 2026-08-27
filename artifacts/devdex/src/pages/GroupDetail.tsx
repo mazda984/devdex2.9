@@ -8,7 +8,7 @@ import {
   useLeaveGroup
 } from "@workspace/api-client-react";
 import { useGroupPosts, useCreateGroupPost, useDeleteGroupPost, useDeleteGroup, useGroupGames, useAddGroupGame, useRemoveGroupGame } from "@/lib/extra-api";
-import { useGetUserGames } from "@workspace/api-client-react";
+import { useGetUserGames, getGetUserGamesQueryKey } from "@workspace/api-client-react";
 import GameCard from "@/components/ui/GameCard";
 import {
   AlertDialog,
@@ -80,11 +80,11 @@ export default function GroupDetail() {
   const { data: groupGames, isLoading: groupGamesLoading } = useGroupGames(id);
   const addGroupGame = useAddGroupGame(id);
   const removeGroupGame = useRemoveGroupGame(id);
-  const { data: myGames } = useGetUserGames(user?.id ?? 0, { query: { enabled: !!user } });
+  const { data: myGames } = useGetUserGames(user?.id ?? 0, { query: { enabled: !!user, queryKey: getGetUserGamesQueryKey(user?.id ?? 0) } });
   const [showAddGame, setShowAddGame] = useState(false);
 
   const groupGameIds = new Set((groupGames ?? []).map((g: any) => g.id));
-  const addableGames = (myGames ?? []).filter((g) => !groupGameIds.has(g.id));
+  const addableGames = (myGames ?? []).filter((g: any) => !groupGameIds.has(g.id));
 
   const handleDeleteGroup = () => {
     deleteGroup.mutate(id, {
@@ -347,7 +347,7 @@ export default function GroupDetail() {
                 <div className="py-8 flex justify-center"><Loader /></div>
               ) : posts && posts.length > 0 ? (
                 <div className="space-y-4">
-                  {posts.map((post) => {
+                  {posts.map((post: any) => {
                     const canDelete = user && (user.id === post.authorId || user.id === group.authorId || user.isAdmin);
                     return (
                       <div key={post.id} className="flex gap-3 border-b border-border/50 last:border-0 pb-4 last:pb-0">
@@ -408,7 +408,7 @@ export default function GroupDetail() {
                             Eklenecek yeni bir oyunun yok.
                           </p>
                         ) : (
-                          addableGames.map((g) => (
+                          addableGames.map((g: any) => (
                             <button
                               key={g.id}
                               onClick={() => handleAddGame(g.id)}
@@ -459,7 +459,7 @@ export default function GroupDetail() {
               
               {group.members && group.members.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {group.members.map((member) => {
+                  {group.members.map((member: any) => {
                     const isGroupOwner = member.userId === group.authorId;
                     return (
                       <div key={member.id} className="flex items-center gap-4 bg-card border border-border p-4 rounded-xl shadow-sm hover:shadow-md transition-shadow">

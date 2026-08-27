@@ -116,7 +116,7 @@ export function useEquipCatalogItem() {
       customFetch<{ user: User }>(`/api/catalog/${itemId}/equip`, {
         method: "POST",
       }),
-    onSuccess: (data) => {
+    onSuccess: (data: { user: User }) => {
       queryClient.invalidateQueries({ queryKey: catalogKeys.mine() });
       queryClient.setQueryData(getGetMeQueryKey(), data.user);
       queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
@@ -435,11 +435,40 @@ export function useRemoveFriend() {
   });
 }
 
+// A friend as returned by /api/friends/mine - the base User plus "now playing"
+// presence info (see routes/social.ts).
+export type FriendWithPresence = User & {
+  online: boolean;
+  currentGameId: number | null;
+  currentGameTitle: string | null;
+  currentUrl: string | null;
+};
+
 export function useMyFriends() {
   return useQuery({
     queryKey: ["friends-mine"] as const,
-    queryFn: () => customFetch<User[]>("/api/friends/mine"),
+    queryFn: () => customFetch<FriendWithPresence[]>("/api/friends/mine"),
+    refetchInterval: 20_000, // keep friends' online/playing status reasonably fresh
   });
+}
+
+// Presence heartbeat: call repeatedly (e.g. every ~20s) while the person has a
+// game open, so their friends' Home page can show them as "playing <game>"
+// with a Join button. `url`, when provided, is the player's exact current
+// in-game URL (e.g. a specific krunker.io server) - devdex2s-only, see
+// GameDetail.tsx's isDevdexStudio3DUrl() - so a friend's Join button can drop
+// them on that same server instead of just the game's front page. Call
+// stopPresence() when they close the game.
+export async function sendPresenceHeartbeat(gameId: number, url?: string) {
+  return customFetch<{ ok: true }>("/api/presence/heartbeat", {
+    method: "POST",
+    body: JSON.stringify({ gameId, url }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+export async function stopPresence() {
+  return customFetch<{ ok: true }>("/api/presence/stop", { method: "POST" });
 }
 
 // ---------------------------------------------------------------------------

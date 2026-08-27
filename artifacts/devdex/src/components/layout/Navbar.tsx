@@ -4,10 +4,12 @@ import { useAuth } from "@/lib/auth";
 import { Gamepad2, UserCircle, LogOut, PlusSquare, Search, Wrench, Settings as SettingsIcon, Sun, Moon, Users, Coins, ShieldCheck, ShoppingBag, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/lib/theme";
+import { useI18n } from "@/lib/i18n";
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { t } = useI18n();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
@@ -25,28 +27,28 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
             <Link href="/games" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
               <Search className="w-4 h-4" />
-              Browse
+              {t("nav.browse")}
             </Link>
             <Link href="/groups" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
               <Users className="w-4 h-4" />
-              Groups
+              {t("nav.groups")}
             </Link>
             <Link href="/catalog" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
               <ShoppingBag className="w-4 h-4" />
-              Catalog
+              {t("nav.catalog")}
             </Link>
             <Link href="/submit" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
               <PlusSquare className="w-4 h-4" />
-              Submit
+              {t("nav.submit")}
             </Link>
             <Link href="/studio" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5">
               <Wrench className="w-4 h-4" />
-              Studio
+              {t("nav.studio")}
             </Link>
             {user?.isAdmin && (
               <Link href="/admin" className="text-amber-500 hover:text-amber-400 transition-colors flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4" />
-                Admin
+                {t("nav.admin")}
               </Link>
             )}
           </nav>
@@ -87,11 +89,11 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-3">
               <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors hidden sm:block">
-                Login
+                {t("nav.login")}
               </Link>
               <Link href="/register">
                 <Button size="sm" className="font-semibold shadow-sm">
-                  Sign Up
+                  {t("nav.signup")}
                 </Button>
               </Link>
             </div>

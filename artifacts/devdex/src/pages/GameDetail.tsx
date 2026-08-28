@@ -37,7 +37,7 @@ function isDevdexStudio3DUrl(url: string) {
   return /devdexstudio3d/i.test(url);
 }
 
-function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: string; gameUrl: string; gameId: number; joinUrl?: string | null; onClose: () => void }) {
+function GameOverlay({ title, coverImageUrl, authorUsername, gameUrl, gameId, joinUrl, onClose }: { title: string; coverImageUrl?: string | null; authorUsername?: string; gameUrl: string; gameId: number; joinUrl?: string | null; onClose: () => void }) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showShareBox, setShowShareBox] = useState(false);
@@ -113,6 +113,18 @@ function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: stri
     };
   }, [onClose]);
 
+  // Loading screen: shown for at least a moment (so it doesn't just flash for
+  // an instant on fast connections) and until the iframe actually finishes
+  // loading. Cross-origin iframes still fire the 'load' event normally - we
+  // just can't read their contents, which we don't need to here.
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setMinTimeElapsed(true), 1400);
+    return () => clearTimeout(t);
+  }, []);
+  const isLoading = !(minTimeElapsed && iframeLoaded);
+
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       containerRef.current?.requestFullscreen?.().catch(() => {});
@@ -183,7 +195,49 @@ function GameOverlay({ title, gameUrl, gameId, joinUrl, onClose }: { title: stri
         className="flex-1 w-full border-none"
         title={title}
         allow="fullscreen; gamepad; autoplay"
+        onLoad={() => setIframeLoaded(true)}
       />
+
+      {/* Loading screen - shown over the iframe until it's ready. Styled like a
+          classic game-platform loading splash: blurred cover art background,
+          a glowing rounded cover-image card, the title/author, and a spinning
+          logo in the bottom-right corner. */}
+      {isLoading && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black overflow-hidden">
+          {coverImageUrl && (
+            <div
+              className="absolute inset-0 bg-cover bg-center opacity-40 blur-2xl scale-110"
+              style={{ backgroundImage: `url(${coverImageUrl})` }}
+            />
+          )}
+          <div className="absolute inset-0 bg-black/60" />
+
+          <div className="relative flex flex-col items-center gap-6 px-6">
+            <div className="relative w-52 h-52 sm:w-64 sm:h-64 rounded-2xl overflow-hidden shadow-[0_0_70px_14px_rgba(255,255,255,0.15)] ring-1 ring-white/20">
+              {coverImageUrl ? (
+                <img src={coverImageUrl} alt={title} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
+                  <Gamepad2 className="w-16 h-16 text-white/30" />
+                </div>
+              )}
+            </div>
+            <div className="text-center">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white">{title}</h2>
+              {authorUsername && <p className="text-white/50 text-sm mt-1.5">{authorUsername} tarafından</p>}
+            </div>
+          </div>
+
+          <div className="absolute bottom-6 right-6 w-11 h-11 sm:w-14 sm:h-14">
+            <img
+              src={`${import.meta.env.BASE_URL}assets/devdex-logo.png`}
+              alt="Devdex"
+              className="w-full h-full animate-spin drop-shadow-[0_0_10px_rgba(255,255,255,0.3)]"
+              style={{ animationDuration: "1.8s" }}
+            />
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
@@ -464,6 +518,8 @@ export default function GameDetail() {
       {isPlaying && (
         <GameOverlay
           title={game.title}
+          coverImageUrl={game.coverImageUrl}
+          authorUsername={game.author?.username}
           gameUrl={game.gameUrl}
           gameId={game.id}
           joinUrl={joinUrl}

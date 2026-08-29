@@ -113,17 +113,16 @@ function GameOverlay({ title, coverImageUrl, authorUsername, gameUrl, gameId, jo
     };
   }, [onClose]);
 
-  // Loading screen: shown for at least a moment (so it doesn't just flash for
-  // an instant on fast connections) and until the iframe actually finishes
-  // loading. Cross-origin iframes still fire the 'load' event normally - we
-  // just can't read their contents, which we don't need to here.
-  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
-  const [iframeLoaded, setIframeLoaded] = useState(false);
+  // Loading screen: shown for a fixed short window regardless of whether the
+  // iframe itself has actually finished loading (waiting on the iframe's own
+  // 'load' event turned out to be unreliable for cross-origin games - it can
+  // fire almost instantly for the shell page while the real game keeps
+  // loading after, or not fire in a way we can observe at all).
+  const [isLoading, setIsLoading] = useState(true);
   useEffect(() => {
-    const t = setTimeout(() => setMinTimeElapsed(true), 1400);
+    const t = setTimeout(() => setIsLoading(false), 1500);
     return () => clearTimeout(t);
   }, []);
-  const isLoading = !(minTimeElapsed && iframeLoaded);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
@@ -195,7 +194,6 @@ function GameOverlay({ title, coverImageUrl, authorUsername, gameUrl, gameId, jo
         className="flex-1 w-full border-none"
         title={title}
         allow="fullscreen; gamepad; autoplay"
-        onLoad={() => setIframeLoaded(true)}
       />
 
       {/* Loading screen - shown over the iframe until it's ready. Styled like a

@@ -48,6 +48,16 @@ async function ensureSchemaIsUpToDate() {
       ALTER TABLE "users"
         ADD COLUMN IF NOT EXISTS "current_play_url" text;
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS "password_reset_tokens" (
+        "id" serial PRIMARY KEY,
+        "user_id" integer NOT NULL REFERENCES "users"("id"),
+        "token_hash" text NOT NULL,
+        "expires_at" timestamptz NOT NULL,
+        "used_at" timestamptz,
+        "created_at" timestamptz NOT NULL DEFAULT now()
+      );
+    `);
   } catch (err) {
     // Don't crash the whole process over this — if the tables themselves
     // don't exist yet (fresh database), the normal app queries below will

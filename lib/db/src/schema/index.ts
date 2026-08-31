@@ -4,3 +4,4 @@ export * from "./sessions";
 export * from "./groups";
 export * from "./catalog";
 export * from "./social";
+export * from "./password_reset";

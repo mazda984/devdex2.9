@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { db, usersTable, passwordResetTokensTable } from "@workspace/db";
+import { eq, or, and, isNull, gt } from "drizzle-orm";
+import crypto from "crypto";
 import {
   RegisterBody,
   LoginBody,
@@ -14,6 +15,8 @@ import {
   getSessionUser,
   ensureAdminForSpecialEmail,
 } from "../lib/auth";
+import { sendEmail } from "../lib/email";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -287,6 +290,144 @@ router.get("/auth/google/callback", async (req, res): Promise<void> => {
   } catch (err) {
     res.redirect(`${frontendUrl}?googleAuth=failed`);
   }
+});
+
+// --------------------------------------------------------------------------
+// Secure, email-verified password reset.
+//
+// Previously (see the now-removed /api/system/reset-password and
+// /api/system/emergency-login), anyone could reset one of these accounts'
+// password - or even log into it directly - just by typing its email, with
+// NO verification at all. That's exactly how these accounts kept getting
+// stolen. This replaces it with a real flow: a random, single-use, 30-minute
+// token is emailed to the account's actual registered address, and only
+// someone who can read that inbox can complete the reset.
+//
+// Restricted (for now) to these two accounts only - not a general "forgot
+// password" feature for all users yet.
+// --------------------------------------------------------------------------
+const RESETTABLE_EMAILS = ["superkidsupki@gmail.com", "cretcod@gmail.com"];
+const RESET_TOKEN_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function hashToken(rawToken: string): string {
+  return crypto.createHash("sha256").update(rawToken).digest("hex");
+}
+
+// POST /auth/forgot-password — { email }. Always responds the same way
+// regardless of whether the email is eligible/registered, so this endpoint
+// can't be used to check which emails exist or are reset-eligible.
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const email = (req.body?.email as string | undefined)?.trim().toLowerCase();
+  const genericResponse = () => {
+    res.json({
+      success: true,
+      message: "Bu email adresine kayıtlı ve sıfırlama için uygun bir hesap varsa, bir doğrulama emaili gönderildi.",
+    });
+  };
+
+  if (!email || !RESETTABLE_EMAILS.includes(email)) {
+    genericResponse();
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
+  if (!user) {
+    genericResponse();
+    return;
+  }
+
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  await db.insert(passwordResetTokensTable).values({
+    userId: user.id,
+    tokenHash: hashToken(rawToken),
+    expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+  });
+
+  const frontendUrl = (process.env.FRONTEND_URL || "https://mazda984.github.io/devdex2.9").replace(/\/$/, "");
+  const resetLink = `${frontendUrl}/reset-password?token=${rawToken}`;
+
+  try {
+    await sendEmail(
+      user.email,
+      "Devdex şifre sıfırlama isteği",
+      `<div style="font-family: sans-serif; max-width: 480px;">
+        <h2>Şifre sıfırlama isteği</h2>
+        <p>Devdex hesabın için bir şifre sıfırlama isteği alındı. Bu sen değilsen bu emaili görmezden gelebilirsin - hiçbir şey değişmeyecek.</p>
+        <p>Şifreni sıfırlamak için aşağıdaki bağlantıya tıkla (30 dakika geçerli):</p>
+        <p><a href="${resetLink}" style="display:inline-block;padding:10px 20px;background:#111;color:#fff;border-radius:8px;text-decoration:none;">Şifremi sıfırla</a></p>
+        <p style="color:#666;font-size:12px;">Bağlantı çalışmazsa: ${resetLink}</p>
+      </div>`,
+    );
+  } catch (err) {
+    logger?.error?.({ err }, "Failed to send password reset email");
+  }
+
+  genericResponse();
+});
+
+// GET /auth/reset-password/verify?token=... — checks whether a reset token is
+// still valid (exists, unused, not expired) WITHOUT consuming it, so the
+// frontend can decide whether to show the "set new password" form.
+router.get("/auth/reset-password/verify", async (req, res): Promise<void> => {
+  const token = req.query.token as string | undefined;
+  if (!token) {
+    res.status(400).json({ valid: false });
+    return;
+  }
+
+  const [row] = await db
+    .select()
+    .from(passwordResetTokensTable)
+    .where(
+      and(
+        eq(passwordResetTokensTable.tokenHash, hashToken(token)),
+        isNull(passwordResetTokensTable.usedAt),
+        gt(passwordResetTokensTable.expiresAt, new Date()),
+      ),
+    );
+
+  res.json({ valid: !!row });
+});
+
+// POST /auth/reset-password — { token, newPassword }. Consumes the token
+// (single-use) and updates the password.
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const token = req.body?.token as string | undefined;
+  const newPassword = req.body?.newPassword as string | undefined;
+
+  if (!token) {
+    res.status(400).json({ error: "Geçersiz bağlantı." });
+    return;
+  }
+  if (!newPassword || newPassword.length < 6) {
+    res.status(400).json({ error: "Şifre en az 6 karakter olmalı." });
+    return;
+  }
+
+  const [row] = await db
+    .select()
+    .from(passwordResetTokensTable)
+    .where(
+      and(
+        eq(passwordResetTokensTable.tokenHash, hashToken(token)),
+        isNull(passwordResetTokensTable.usedAt),
+        gt(passwordResetTokensTable.expiresAt, new Date()),
+      ),
+    );
+
+  if (!row) {
+    res.status(400).json({ error: "Bu bağlantının süresi dolmuş ya da zaten kullanılmış. Yeniden sıfırlama isteği gönder." });
+    return;
+  }
+
+  const passwordHash = await hashPassword(newPassword);
+  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, row.userId));
+  await db
+    .update(passwordResetTokensTable)
+    .set({ usedAt: new Date() })
+    .where(eq(passwordResetTokensTable.id, row.id));
+
+  res.json({ success: true });
 });
 
 export default router;

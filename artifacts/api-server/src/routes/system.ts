@@ -1,7 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, usersTable } from "@workspace/db";
-import { sql, eq, or } from "drizzle-orm";
-import { hashPassword, createSession } from "../lib/auth";
+import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -150,76 +149,6 @@ router.get("/system/migrate", async (_req, res): Promise<void> => {
   } catch (err: any) {
     res.status(500).json({ success: false, ran, error: err?.message ?? String(err) });
   }
-});
-
-// Only these accounts can use the emergency reset below — this keeps the
-// no-login-required endpoint from being usable against anyone else's account.
-const RESETTABLE_EMAILS = ["superkidsupki@gmail.com", "cretcod@gmail.com"];
-
-// POST /system/reset-password — emergency password reset for the owner
-// accounts only. Body: { email, newPassword }
-router.post("/system/reset-password", async (req, res): Promise<void> => {
-  const { email, newPassword } = req.body as { email?: string; newPassword?: string };
-
-  if (!email || !RESETTABLE_EMAILS.includes(email.toLowerCase())) {
-    res.status(403).json({ error: "Bu email için sıfırlama yapılamaz" });
-    return;
-  }
-  if (!newPassword || newPassword.length < 6) {
-    res.status(400).json({ error: "Şifre en az 6 karakter olmalı" });
-    return;
-  }
-
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(or(eq(usersTable.email, email.toLowerCase()), eq(usersTable.username, email)));
-  if (!user) {
-    res.status(404).json({ error: "Bu email ile bir hesap bulunamadı" });
-    return;
-  }
-
-  const passwordHash = await hashPassword(newPassword);
-  await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, user.id));
-
-  res.json({ success: true });
-});
-
-// GET /system/emergency-login?email=... — logs the given owner account in
-// directly, no password needed. Scoped to the same protected owner emails as
-// the reset endpoint above, so it can't be used against anyone else's account.
-router.get("/system/emergency-login", async (req, res): Promise<void> => {
-  const email = (req.query.email as string | undefined)?.toLowerCase();
-  const frontendUrl = process.env.FRONTEND_URL || "https://mazda984.github.io/devdex2.9/";
-
-  if (!email || !RESETTABLE_EMAILS.includes(email)) {
-    res.status(403).send("Bu email için otomatik giriş yapılamaz.");
-    return;
-  }
-
-  let [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
-
-  if (!user) {
-    const usernameBase = email.split("@")[0].replace(/[^a-zA-Z0-9_]/g, "") || "owner";
-    const [created] = await db
-      .insert(usersTable)
-      .values({
-        username: usernameBase,
-        email,
-        passwordHash: null,
-        isAdmin: true,
-      })
-      .returning();
-    user = created;
-  }
-
-  if (!user.isAdmin) {
-    const [updated] = await db.update(usersTable).set({ isAdmin: true }).where(eq(usersTable.id, user.id)).returning();
-    user = updated;
-  }
-
-  await createSession(user.id, res);
-  res.redirect(frontendUrl);
 });
 
 export default router;

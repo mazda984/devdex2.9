@@ -17,6 +17,7 @@ import {
 } from "../lib/auth";
 import { sendEmail } from "../lib/email";
 import { logger } from "../lib/logger";
+import { strictLimiter } from "../middlewares/rate-limit";
 
 const router: IRouter = Router();
 
@@ -44,7 +45,7 @@ function safeUser(user: {
   };
 }
 
-router.post("/auth/register", async (req, res): Promise<void> => {
+router.post("/auth/register", strictLimiter, async (req, res): Promise<void> => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -89,7 +90,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   res.status(201).json({ user: safeUser(user) });
 });
 
-router.post("/auth/login", async (req, res): Promise<void> => {
+router.post("/auth/login", strictLimiter, async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -316,7 +317,7 @@ function hashToken(rawToken: string): string {
 // POST /auth/forgot-password — { email }. Always responds the same way
 // regardless of whether the email is eligible/registered, so this endpoint
 // can't be used to check which emails exist or are reset-eligible.
-router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+router.post("/auth/forgot-password", strictLimiter, async (req, res): Promise<void> => {
   const email = (req.body?.email as string | undefined)?.trim().toLowerCase();
   const genericResponse = () => {
     res.json({
@@ -391,7 +392,7 @@ router.get("/auth/reset-password/verify", async (req, res): Promise<void> => {
 
 // POST /auth/reset-password — { token, newPassword }. Consumes the token
 // (single-use) and updates the password.
-router.post("/auth/reset-password", async (req, res): Promise<void> => {
+router.post("/auth/reset-password", strictLimiter, async (req, res): Promise<void> => {
   const token = req.body?.token as string | undefined;
   const newPassword = req.body?.newPassword as string | undefined;
 

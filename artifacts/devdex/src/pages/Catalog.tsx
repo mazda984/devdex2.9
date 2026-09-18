@@ -21,9 +21,51 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Coins, ShoppingBag, PlusSquare, Check, Shirt, Crown } from "lucide-react";
+import { Coins, ShoppingBag, PlusSquare, Check, Shirt, Crown, Palette } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useTheme } from "@/lib/theme";
+import { INTERFACE_STYLES } from "@/lib/styles";
 
 const CREATE_COST = 5;
+
+function StylesTab() {
+  const { styleId, setStyleId } = useTheme();
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+      {INTERFACE_STYLES.map((style) => {
+        const active = styleId === style.id;
+        return (
+          <div
+            key={style.id}
+            className="bg-card border border-border rounded-xl overflow-hidden flex flex-col shadow-sm"
+          >
+            <div className="aspect-video flex">
+              {style.swatch.map((color, i) => (
+                <div key={i} className="flex-1" style={{ backgroundColor: color }} />
+              ))}
+            </div>
+            <div className="p-3 flex-1 flex flex-col gap-2">
+              <h3 className="font-bold text-sm text-foreground">{style.name}</h3>
+              <p className="text-xs text-muted-foreground flex-1">{style.description}</p>
+              <div className="mt-auto">
+                {active ? (
+                  <span className="w-full flex items-center justify-center gap-1 text-xs font-semibold text-primary py-2">
+                    <Check className="w-3.5 h-3.5" /> Uygulanıyor
+                  </span>
+                ) : (
+                  <Button size="sm" className="w-full" onClick={() => setStyleId(style.id)}>
+                    Uygula
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function Catalog() {
   const { user } = useAuth();
@@ -179,6 +221,21 @@ export default function Catalog() {
         )}
       </div>
 
+      <Tabs defaultValue="items" className="w-full">
+        <TabsList className="mb-8">
+          <TabsTrigger value="items" className="gap-1.5">
+            <Shirt className="w-3.5 h-3.5" /> Eşyalar
+          </TabsTrigger>
+          <TabsTrigger value="styles" className="gap-1.5">
+            <Palette className="w-3.5 h-3.5" /> Stiller
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="styles">
+          <StylesTab />
+        </TabsContent>
+
+        <TabsContent value="items">
       {isLoading ? (
         <div className="flex items-center justify-center py-20"><Loader /></div>
       ) : items && items.length > 0 ? (
@@ -229,6 +286,8 @@ export default function Catalog() {
           <p className="text-muted-foreground">Henüz hiç katalog öğesi yok.</p>
         </div>
       )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

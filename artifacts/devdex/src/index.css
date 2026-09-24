@@ -299,3 +299,268 @@
 .style-frutiger-aero.dark header {
   background-color: hsla(205, 55%, 10%, 0.7) !important;
 }
+
+/* =========================================================
+   STİL: Roblox 2016
+   Dönemin beyaz-gri zemin + mavi vurgu, düz kartlı görünümü.
+   ========================================================= */
+:root[data-style="roblox-2016"] {
+  --background: 220 14% 96%;
+  --foreground: 210 10% 15%;
+  --border: 220 13% 85%;
+  --input: 220 13% 88%;
+  --ring: 200 100% 50%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 210 10% 15%;
+  --card-border: 220 13% 85%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 210 10% 15%;
+  --popover-border: 220 13% 85%;
+
+  --primary: 200 100% 50%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: 200 100% 40%;
+
+  --secondary: 220 13% 92%;
+  --secondary-foreground: 210 10% 15%;
+  --secondary-border: 220 13% 85%;
+
+  --muted: 220 13% 93%;
+  --muted-foreground: 215 10% 45%;
+  --muted-border: 220 13% 85%;
+
+  --accent: 150 60% 40%;
+  --accent-foreground: 0 0% 100%;
+  --accent-border: 150 60% 32%;
+
+  --destructive: 0 75% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-border: 0 75% 42%;
+
+  --sidebar: 210 10% 22%;
+  --sidebar-foreground: 0 0% 96%;
+  --sidebar-border: 210 10% 15%;
+  --sidebar-primary: 200 100% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 210 10% 28%;
+  --sidebar-accent-foreground: 0 0% 96%;
+  --sidebar-ring: 200 100% 50%;
+
+  --radius: 0.25rem;
+}
+
+:root[data-style="roblox-2016"].dark {
+  --background: 210 12% 14%;
+  --foreground: 0 0% 94%;
+  --border: 210 10% 24%;
+  --input: 210 10% 22%;
+  --ring: 200 100% 55%;
+
+  --card: 210 12% 18%;
+  --card-foreground: 0 0% 94%;
+  --card-border: 210 10% 24%;
+
+  --popover: 210 12% 18%;
+  --popover-foreground: 0 0% 94%;
+  --popover-border: 210 10% 24%;
+
+  --primary: 200 100% 55%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: 200 100% 45%;
+
+  --secondary: 210 10% 22%;
+  --secondary-foreground: 0 0% 94%;
+  --secondary-border: 210 10% 26%;
+
+  --muted: 210 10% 20%;
+  --muted-foreground: 210 10% 65%;
+  --muted-border: 210 10% 24%;
+}
+
+.style-roblox-2016 nav,
+.style-roblox-2016 header {
+  background-color: hsl(210 10% 22%) !important;
+  border-bottom: 1px solid hsl(210 10% 15%);
+}
+.style-roblox-2016 nav *,
+.style-roblox-2016 header * {
+  color: hsl(0 0% 94%);
+}
+.style-roblox-2016 .bg-card,
+.style-roblox-2016 [class*="bg-card"] {
+  border-radius: 4px;
+  box-shadow: 0 1px 3px hsla(210, 20%, 10%, 0.15);
+}
+.style-roblox-2016 button {
+  border-radius: 3px !important;
+}
+
+/* =========================================================
+   STİL: Roblox Klasik (2007)
+   Koyu lacivert navbar, kırmızı vurgular, sade retro form alanları.
+   ========================================================= */
+:root[data-style="roblox-classic"] {
+  --background: 205 45% 94%;
+  --foreground: 210 40% 12%;
+  --border: 205 30% 78%;
+  --input: 205 30% 85%;
+  --ring: 355 75% 45%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 210 40% 12%;
+  --card-border: 205 30% 78%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 210 40% 12%;
+  --popover-border: 205 30% 78%;
+
+  --primary: 355 75% 45%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: 355 75% 35%;
+
+  --secondary: 205 35% 88%;
+  --secondary-foreground: 210 40% 15%;
+  --secondary-border: 205 30% 78%;
+
+  --muted: 205 35% 90%;
+  --muted-foreground: 210 20% 40%;
+  --muted-border: 205 30% 80%;
+
+  --accent: 145 55% 38%;
+  --accent-foreground: 0 0% 100%;
+  --accent-border: 145 55% 30%;
+
+  --destructive: 0 75% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-border: 0 75% 42%;
+
+  --sidebar: 210 45% 14%;
+  --sidebar-foreground: 205 30% 92%;
+  --sidebar-border: 210 45% 8%;
+  --sidebar-primary: 355 75% 45%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 210 45% 20%;
+  --sidebar-accent-foreground: 205 30% 92%;
+  --sidebar-ring: 355 75% 45%;
+
+  --radius: 0.35rem;
+}
+
+:root[data-style="roblox-classic"].dark {
+  --background: 210 45% 10%;
+  --foreground: 205 30% 92%;
+  --border: 210 35% 22%;
+  --input: 210 35% 20%;
+  --ring: 355 80% 55%;
+
+  --card: 210 40% 14%;
+  --card-foreground: 205 30% 92%;
+  --card-border: 210 35% 22%;
+
+  --primary: 355 80% 55%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: 355 80% 45%;
+
+  --secondary: 210 35% 18%;
+  --secondary-foreground: 205 30% 92%;
+  --secondary-border: 210 35% 24%;
+}
+
+.style-roblox-classic nav,
+.style-roblox-classic header {
+  background-color: hsl(210 45% 14%) !important;
+  border-bottom: 3px solid hsl(355 75% 45%);
+}
+.style-roblox-classic nav *,
+.style-roblox-classic header * {
+  color: hsl(205 30% 92%);
+}
+.style-roblox-classic button {
+  border-radius: 2px !important;
+  text-transform: none;
+}
+.style-roblox-classic .bg-card,
+.style-roblox-classic [class*="bg-card"] {
+  border-radius: 3px;
+  border-width: 1px;
+}
+
+/* =========================================================
+   STİL: Neon Cyber
+   Koyu zemin, mor/pembe neon parlamalar ve ızgara dokusu.
+   ========================================================= */
+:root[data-style="neon-cyber"],
+:root[data-style="neon-cyber"].dark {
+  --background: 260 35% 6%;
+  --foreground: 290 60% 92%;
+  --border: 280 60% 30%;
+  --input: 280 40% 16%;
+  --ring: 315 100% 60%;
+
+  --card: 265 40% 10%;
+  --card-foreground: 290 60% 92%;
+  --card-border: 280 60% 28%;
+
+  --popover: 265 40% 10%;
+  --popover-foreground: 290 60% 92%;
+  --popover-border: 280 60% 28%;
+
+  --primary: 315 100% 60%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: 315 100% 45%;
+
+  --secondary: 265 35% 15%;
+  --secondary-foreground: 290 60% 92%;
+  --secondary-border: 280 50% 26%;
+
+  --muted: 265 35% 14%;
+  --muted-foreground: 280 30% 65%;
+  --muted-border: 280 50% 24%;
+
+  --accent: 262 90% 65%;
+  --accent-foreground: 0 0% 100%;
+  --accent-border: 262 90% 50%;
+
+  --destructive: 0 85% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --destructive-border: 0 85% 48%;
+
+  --sidebar: 265 45% 8%;
+  --sidebar-foreground: 290 60% 92%;
+  --sidebar-border: 280 60% 24%;
+  --sidebar-primary: 315 100% 60%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 265 35% 15%;
+  --sidebar-accent-foreground: 290 60% 92%;
+  --sidebar-ring: 315 100% 60%;
+
+  --radius: 0.5rem;
+}
+
+.style-neon-cyber body {
+  background-image:
+    linear-gradient(hsla(280, 60%, 50%, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, hsla(280, 60%, 50%, 0.08) 1px, transparent 1px),
+    radial-gradient(ellipse 70% 50% at 50% 0%, hsla(315, 100%, 55%, 0.2), transparent 70%);
+  background-size: 40px 40px, 40px 40px, 100% 100%;
+  background-attachment: fixed;
+}
+
+.style-neon-cyber .bg-card,
+.style-neon-cyber [class*="bg-card"] {
+  box-shadow: 0 0 0 1px hsla(315, 100%, 60%, 0.25), 0 0 24px hsla(280, 90%, 55%, 0.15);
+}
+
+.style-neon-cyber button,
+.style-neon-cyber .bg-primary {
+  box-shadow: 0 0 12px hsla(315, 100%, 60%, 0.55);
+}
+
+.style-neon-cyber nav,
+.style-neon-cyber header {
+  background-color: hsla(265, 45%, 8%, 0.85) !important;
+  border-bottom: 1px solid hsla(315, 100%, 60%, 0.35);
+  box-shadow: 0 1px 12px hsla(315, 100%, 60%, 0.25);
+}

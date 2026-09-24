@@ -35,6 +35,27 @@ export const INTERFACE_STYLES: InterfaceStyle[] = [
     swatch: ["#0ea8e0", "#eafcff", "#0a3d5c"],
     effectClass: "style-frutiger-aero",
   },
+  {
+    id: "roblox-2016",
+    name: "Roblox 2016",
+    description: "2016 döneminin klasik beyaz-mavi Roblox arayüzü: düz kartlar, mavi vurgular, gri navbar.",
+    swatch: ["#00a2ff", "#f2f4f7", "#393b3d"],
+    effectClass: "style-roblox-2016",
+  },
+  {
+    id: "roblox-classic",
+    name: "Roblox Klasik (2007)",
+    description: "2007'lerin ilk Roblox sitesi gibi: koyu lacivert navbar, kırmızı vurgular, retro dokular.",
+    swatch: ["#b3161c", "#dfeaf5", "#0e1b2c"],
+    effectClass: "style-roblox-classic",
+  },
+  {
+    id: "neon-cyber",
+    name: "Neon Cyber",
+    description: "Karanlık arka plan üstünde mor-pembe neon parlamalar ve ızgara desenleri.",
+    swatch: ["#ff2fd0", "#0a0a12", "#7c3aed"],
+    effectClass: "style-neon-cyber",
+  },
 ];
 
 export function getStyleById(id: string | null | undefined): InterfaceStyle {
